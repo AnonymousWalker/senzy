@@ -1,0 +1,11 @@
+@Senzy.Api_HostAddress = http://localhost:4001
+
+GET {{Senzy.Api_HostAddress}}/health
+Accept: application/json
+
+###
+
+GET {{Senzy.Api_HostAddress}}/v1/banking/institutions
+Accept: application/json
+
+###
