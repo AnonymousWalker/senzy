@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+.expo/
+dist/
+bin/
+obj/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+apps/mobile/web-build/
+apps/mobile/.expo-shared/
