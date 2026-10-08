@@ -9,7 +9,8 @@ public sealed class StubBankingProvider : IBankingProvider
     [
         new("stub-first-national", "First National Sandbox", null),
         new("stub-community-credit", "Community Credit Sandbox", null),
-        new("stub-river-bank", "River Bank Sandbox", null)
+        new("stub-river-bank", "River Bank Sandbox", null),
+        new("stub-wells-fargo-bank", "Wells Fargo Sandbox", null)
     ];
 
     private readonly ConcurrentDictionary<string, LinkSession> _sessions = new();

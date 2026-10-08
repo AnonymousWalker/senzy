@@ -1,9 +1,10 @@
 import { z } from 'zod';
+export type { paths, components, operations } from './generated/api.js';
 
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.literal('senzy-api'),
-  timestamp: z.iso.datetime(),
+  timestamp: z.iso.datetime({ offset: true }),
 });
 
 export const transferRequestSchema = z.object({
@@ -20,6 +21,12 @@ export const bankingInstitutionSchema = z.object({
   logoUrl: z.url().nullable(),
 });
 
+export const institutionsResponseSchema = z.object({
+  provider: z.literal('stub-banking'),
+  sandbox: z.literal(true),
+  institutions: z.array(bankingInstitutionSchema),
+});
+
 export const createBankLinkSessionRequestSchema = z
   .object({
     userId: z.uuid(),
@@ -30,7 +37,7 @@ export const bankLinkSessionSchema = z.object({
   provider: z.literal('stub-banking'),
   sandbox: z.literal(true),
   linkToken: z.string().startsWith('stub_link_'),
-  expiresAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime({ offset: true }),
 });
 
 export const connectBankAccountRequestSchema = z
@@ -53,7 +60,7 @@ export const externalBankAccountSchema = z.object({
   mask: z.string().regex(/^\d{4}$/),
   accountKind: z.enum(['checking', 'savings']),
   status: z.literal('linked'),
-  createdAt: z.iso.datetime(),
+  createdAt: z.iso.datetime({ offset: true }),
 });
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;

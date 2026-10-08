@@ -7,22 +7,23 @@ A web-and-mobile peer-to-peer payments foundation. This is an original implement
 - `apps/mobile` — Expo / React Native client
 - `apps/web` — React + TypeScript web preview
 - `api-server` — ASP.NET Core API with health, readiness, OpenAPI, and sandbox banking routes
-- `packages/contracts` — shared request and response validation
-- `infra/compose.yaml` — optional local PostgreSQL service
+- `packages/contracts` — generated OpenAPI types and runtime response validation
+- `tests/Senzy.Api.Tests` — HTTP and PostgreSQL readiness integration tests
+- `infra/compose.yaml` — local PostgreSQL and containerized API
 - `docs/PRODUCT_PLAN.md` — staged delivery plan and safety gates
 
 ## Prerequisites
 
-- Node.js 22.13 or newer
-- pnpm 11 or newer
+- Node.js 24.15.0 (pinned in `.nvmrc`; use `nvm use` if you use NVM)
+- pnpm 11.1.3 (pinned in `package.json`; enable Corepack with `corepack enable`)
 - .NET SDK 10
 - Expo Go on a physical phone, or an Android emulator
-- Docker Desktop only if you want the bundled local PostgreSQL service
+- Docker Engine with Compose v2, or Docker Desktop, for the containerized database/API
 
 ## Start
 
 ```powershell
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev:api
 ```
 
@@ -47,23 +48,56 @@ Available endpoints:
 
 Banking responses are marked with `provider: "stub-banking"` and `sandbox: true`. `IBankingProvider` is the swap point for a future provider integration; real bank linking is out of scope now.
 
-## Database
+## Database and API with Docker Compose
 
-With Docker Desktop installed:
+From the repository root on this Linux host:
 
-```powershell
-docker compose -f infra/compose.yaml up -d
+```sh
+mkdir -p /home/tony/data/senzy
+docker compose -f infra/compose.yaml up -d --build --wait
+docker compose -f infra/compose.yaml ps
 ```
 
-The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in a non-development environment. Database schema and migration tooling will be added with the .NET ledger implementation. The web shell and liveness route run without a database. No payment endpoint exists yet. Money-moving endpoints must require PostgreSQL and transactional, double-entry ledger writes.
+PostgreSQL 17 stores its data in `/home/tony/data/senzy`, bind-mounted at `/var/lib/postgresql/data`. Docker initializes the directory's PostgreSQL permissions on first start. The API waits for PostgreSQL to be healthy and connects using the Compose service name `postgres`. Its health check uses `/health/ready`.
+
+The API is available at `http://localhost:4001`, and PostgreSQL at `localhost:5433` (`senzy` database, username, and local-development password). Host port 5433 avoids the existing database on port 5432; PostgreSQL still listens on 5432 inside Compose. Both published ports bind to loopback. This Compose configuration runs the API in Development so sandbox routes and OpenAPI remain available; it is intended for local development. The API process runs as a non-root user in a multi-stage .NET 10 image.
+
+Run `pnpm dev:web` to use the containerized API; do not also run `pnpm dev:api` on the same port. After backend source changes, rerun the Compose command with `--build`; the container does not hot-reload. To use host-side .NET hot reload instead, stop the API container with `docker compose -f infra/compose.yaml stop api`, start only the database with `docker compose -f infra/compose.yaml up -d postgres`, then run `pnpm dev:api`.
+
+```sh
+docker compose -f infra/compose.yaml logs -f api postgres
+docker compose -f infra/compose.yaml down
+```
+
+`down` removes containers and the Compose network but preserves the database files in `/home/tony/data/senzy`. The previous Compose named volume, if present, is not migrated or deleted by this setup. Use a PostgreSQL dump/restore if you need to transfer existing data. Edit the bind mount source in `infra/compose.yaml` when using another host.
+
+The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in a non-development environment. Database schema and migration tooling will be added in Phase 1. The web shell and liveness route run without a database. No payment endpoint exists yet. Money-moving endpoints must require PostgreSQL and transactional, double-entry ledger writes.
 
 ## Checks
 
 ```powershell
 pnpm check
+pnpm contracts:check
 pnpm test
+pnpm lint:mobile
+pnpm build:web
+pnpm build:mobile
 ```
 
-`pnpm check` also builds the .NET API. `pnpm test` runs tests in workspace packages that define a test script; there are currently no automated test suites after removal of the legacy API.
+`pnpm check` checks all TypeScript packages and builds the .NET API. `pnpm test` runs available workspace tests and the .NET integration suite. The database-success test is explicitly skipped locally unless `SENZY_TEST_POSTGRES` is set to a test database connection string; CI requires it and starts PostgreSQL automatically. Other tests cover unavailable/unconfigured databases without needing PostgreSQL.
+
+For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy` before running tests. The current readiness test only executes `SELECT 1`; future persistence tests will need a dedicated disposable database.
+
+`pnpm contracts:generate` updates committed OpenAPI and TypeScript artifacts after API changes. `pnpm contracts:check` validates runtime response samples and detects generated-file drift. See the [contract workflow](packages/contracts/README.md).
+
+`pnpm build:mobile` exports Android, iOS, and web JavaScript/assets locally; it does not invoke EAS or produce native store binaries. CI runs these checks and a pinned Gitleaks history scan on pull requests and pushes to `main`.
+
+## Architecture and planning
+
+- [API organization](api-server/README.md)
+- [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md)
+- [Workload and reliability targets](docs/OPERATING_TARGETS.md)
+- [Initial threat model](docs/THREAT_MODEL.md)
+- [Phase 0 verification](docs/PHASE_0.md)
 
 This codebase is a development foundation, not a production-ready financial service. See the product plan for compliance, fraud, security, reconciliation, and operational requirements that must be completed before real funds are handled.

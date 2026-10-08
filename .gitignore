@@ -2,8 +2,8 @@ node_modules/
 .pnpm-store/
 .expo/
 dist/
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
 coverage/
 .env
 .env.*
@@ -13,3 +13,27 @@ coverage/
 Thumbs.db
 apps/mobile/web-build/
 apps/mobile/.expo-shared/
+
+# .NET build and test output
+artifacts/
+TestResults/
+*.coverage
+*.coveragexml
+
+# Visual Studio and Rider local state
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln.iml
+*.DotSettings.user
+
+# Local .NET publish settings (may contain credentials)
+*.pubxml
+*.publishsettings
+
+# Optional machine-specific .NET configuration
+appsettings.Local.json
+appsettings.*.Local.json

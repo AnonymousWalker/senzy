@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.1.3",
   "engines": {
-    "node": ">=22.13.0",
+    "node": ">=24.15.0",
     "pnpm": ">=11.0.0"
   },
   "scripts": {
@@ -13,6 +13,16 @@
     "dev:web": "pnpm --filter @senzy/web dev",
     "dev:mobile": "pnpm --filter @senzy/mobile dev",
     "check": "pnpm -r --if-present check && dotnet build api-server/Senzy.Api.csproj",
-    "test": "pnpm -r --if-present test"
+    "test": "pnpm -r --if-present test && dotnet test tests/Senzy.Api.Tests/Senzy.Api.Tests.csproj",
+    "contracts:generate": "node scripts/contracts.mjs",
+    "contracts:check": "node scripts/contracts.mjs --check",
+    "build:web": "pnpm --filter @senzy/web build",
+    "build:mobile": "pnpm --filter @senzy/mobile exec expo export --platform all --output-dir dist",
+    "lint:mobile": "oxlint apps/mobile/src"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.10.1",
+    "oxlint": "1.81.0",
+    "typescript": "5.9.3"
   }
 }

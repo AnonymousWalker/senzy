@@ -1,5 +1,6 @@
 using Npgsql;
 using Senzy.Api.Banking;
+using Senzy.Api.Features.Health;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
@@ -13,28 +14,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 
 var app = builder.Build();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "senzy-api" }))
-    .WithName("GetHealth");
-
-app.MapGet("/health/ready", async (IServiceProvider services, CancellationToken cancellationToken) =>
-{
-    var dataSource = services.GetService<NpgsqlDataSource>();
-    if (dataSource is null)
-    {
-        return Results.Problem("PostgreSQL is not configured.", statusCode: 503);
-    }
-
-    try
-    {
-        await using var command = dataSource.CreateCommand("SELECT 1");
-        await command.ExecuteScalarAsync(cancellationToken);
-        return Results.Ok(new { status = "ready" });
-    }
-    catch (Exception error) when (error is NpgsqlException or TimeoutException)
-    {
-        return Results.Problem("PostgreSQL is unavailable.", statusCode: 503);
-    }
-}).WithName("GetReadiness");
+app.MapHealthRoutes();
 
 if (app.Environment.IsDevelopment())
 {
@@ -43,3 +23,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+public partial class Program;

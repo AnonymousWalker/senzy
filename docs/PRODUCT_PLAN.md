@@ -47,7 +47,7 @@ The API may return a pending result when an external workflow is required. It mu
 
 ## Current state
 
-The repository contains an Expo mobile shell, a React + TypeScript web preview, an ASP.NET Core API scaffold with liveness, PostgreSQL readiness, development-only OpenAPI, development-only in-memory stub banking routes, and shared Zod contract definitions. The unused Fastify API has been removed. The web client currently consumes health and sandbox institution data; authentication, payments, ledger writes, database migrations, and automated API tests are not yet implemented in .NET.
+The repository contains an Expo mobile shell, a React + TypeScript web preview, an ASP.NET Core API scaffold with liveness, PostgreSQL readiness, development-only OpenAPI, development-only in-memory stub banking routes, generated OpenAPI TypeScript types, and shared Zod runtime validators. Baseline .NET API tests and a CI workflow cover contracts, builds, mobile exports, PostgreSQL readiness, sandbox behavior, and secret scanning. The web client consumes health and sandbox institution data through the shared contracts. Authentication, payments, ledger writes, and database migrations remain unimplemented.
 
 Build subsequent API features in ASP.NET Core and connect both clients through its versioned contract. Add API tests alongside authentication and the transactional payment implementation.
 
@@ -62,7 +62,7 @@ infra/               Local infrastructure, including PostgreSQL
 docs/                Product and engineering documentation
 ```
 
-The root `package.json` provides workspace commands; pnpm manages the frontend and TypeScript packages, while .NET manages backend dependencies through `api-server/Senzy.Api.csproj`. `pnpm dev:api` starts the backend on port 4001, `pnpm dev:web` starts the web client on port 5173, and `pnpm dev:mobile` starts Expo. `pnpm check` checks the TypeScript workspace and builds the backend. The TypeScript contract definitions are not yet generated from or automatically checked against ASP.NET OpenAPI.
+The root `package.json` provides workspace commands; pnpm manages the frontend and TypeScript packages, while .NET manages backend dependencies through `api-server/Senzy.Api.csproj`. `pnpm dev:api` starts the backend on port 4001, `pnpm dev:web` starts the web client on port 5173, and `pnpm dev:mobile` starts Expo. `pnpm check` checks the TypeScript workspace and builds the backend. `pnpm test` includes .NET integration tests. `pnpm contracts:generate` exports OpenAPI and generates TypeScript types; `pnpm contracts:check` verifies committed artifacts and runtime response samples.
 
 ## Non-functional requirements
 
@@ -75,7 +75,7 @@ The root `package.json` provides workspace commands; pnpm manages the frontend a
 
 ## Delivery phases
 
-### Phase 0 — foundation and decisions (in progress)
+### Phase 0 — foundation and decisions (implemented and locally verified)
 
 - Keep the mobile shell, web preview, API health and readiness checks, and banking stub reproducible in the current layout.
 - Record decisions for authentication, ASP.NET Core service boundaries, payment states, ledger posting, OpenAPI contracts, and the banking stub.
@@ -83,6 +83,8 @@ The root `package.json` provides workspace commands; pnpm manages the frontend a
 - Define the initial workload, peak factor, service-level objectives, and threat model.
 
 Exit: architecture decisions and the contract workflow are agreed; the existing prototype remains reproducible and CI runs the required checks.
+
+Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured; its first hosted run remains pending commit/push. Phase 1 feature implementation is next.
 
 ### Phase 1 — React web and ASP.NET Core API (scaffold complete; features pending)
 
@@ -147,10 +149,10 @@ Exit: explicit production approval, stable cohort metrics, and reconciled financ
 
 ## Near-term backlog
 
-1. Record ASP.NET Core service boundaries, authentication, and API contract decisions.
-2. Establish the OpenAPI-to-TypeScript contract workflow for web and mobile.
+1. Completed in Phase 0: record ASP.NET Core service boundaries, authentication, and API contract decisions.
+2. Completed in Phase 0: establish generated OpenAPI-to-TypeScript contracts shared by both workspaces; connect mobile screens as Phase 1 features arrive.
 3. Add PostgreSQL schema and migration tooling under `api-server`.
-4. Add automated health, readiness, and sandbox banking tests, including validation and one-time link-token behavior; wire checks and tests into CI.
+4. Completed locally in Phase 0: automated health, readiness, and sandbox banking tests, including validation and concurrent one-time link-token behavior; checks and tests are wired into CI, awaiting the first hosted run.
 5. Add authentication, profiles, and fixture-backed activity to web and mobile.
 6. Implement the payment state machine and transactional ledger posting.
 7. Add concurrency, idempotency, and failure-injection tests.

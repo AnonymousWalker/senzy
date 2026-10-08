@@ -9,7 +9,7 @@ export default function HomeScreen() {
       <Text style={styles.wordmark}>senzy</Text>
       <Text style={styles.title}>Payments that feel human.</Text>
       <Text style={styles.body}>
-        The mobile shell, API, shared contracts, and ledger schema are ready for feature work.
+        The mobile shell, API scaffold, and shared contracts are ready for feature work.
       </Text>
       <View style={styles.card}>
         <Text style={styles.cardLabel}>NEXT MILESTONE</Text>

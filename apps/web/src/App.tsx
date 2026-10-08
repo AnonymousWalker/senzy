@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-
-type Institution = { id: string; name: string }
-type BankingResponse = { provider: string; sandbox: boolean; institutions: Institution[] }
+import { loadSandbox } from './api/sandbox'
+import type { Institution } from './api/sandbox'
 
 function App() {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking')
@@ -12,14 +11,7 @@ function App() {
     const controller = new AbortController()
     async function load() {
       try {
-        const [health, banking] = await Promise.all([
-          fetch('/api/health', { signal: controller.signal }),
-          fetch('/api/v1/banking/institutions', { signal: controller.signal }),
-        ])
-        if (!health.ok || !banking.ok) throw new Error('API unavailable')
-        const data = await banking.json() as BankingResponse
-        if (!data.sandbox || data.provider !== 'stub-banking') throw new Error('Expected sandbox provider')
-        setInstitutions(data.institutions)
+        setInstitutions(await loadSandbox(controller.signal))
         setStatus('online')
       } catch {
         if (!controller.signal.aborted) setStatus('offline')
