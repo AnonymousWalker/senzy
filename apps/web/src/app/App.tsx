@@ -1,0 +1,156 @@
+import { useCallback, useEffect, useState } from 'react'
+import type { ActivityFeed, ClientConfiguration, Profile } from '@senzy/contracts'
+import type { ProfileInput } from '@senzy/contracts/client'
+import { ApiError } from '@senzy/contracts/client'
+import { api } from '../api'
+import { ActivityView } from '../features/activity'
+import { AuthView } from '../features/auth'
+import type { AuthSubmission } from '../features/auth'
+import { ProfileView } from '../features/profile'
+import { ErrorBoundary, FeedbackBanner, getErrorMessage } from '../shared'
+import type { AppScreen } from './types'
+import '../App.css'
+
+function SenzyApp() {
+  const [config, setConfig] = useState<ClientConfiguration | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [feed, setFeed] = useState<ActivityFeed | null>(null)
+  const [screen, setScreen] = useState<AppScreen>('activity')
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [attempt, setAttempt] = useState(0)
+
+  const handleFailure = useCallback((cause: unknown) => {
+    setError(getErrorMessage(cause))
+    if (cause instanceof ApiError && cause.status === 401) {
+      setProfile(null)
+      setFeed(null)
+    } else if (!(cause instanceof ApiError) || cause.status >= 500) {
+      api.report('client_error', screen)
+    }
+  }, [screen])
+
+  useEffect(() => {
+    let active = true
+
+    async function restoreSession() {
+      setLoading(true)
+      setError('')
+      try {
+        const settings = await api.configuration()
+        if (!active) return
+        setConfig(settings)
+        try {
+          const user = await api.profile()
+          if (active) setProfile(user)
+        } catch (cause) {
+          if (!(cause instanceof ApiError && cause.status === 401)) throw cause
+        }
+      } catch (cause) {
+        if (active) setError(getErrorMessage(cause))
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    void restoreSession()
+    return () => { active = false }
+  }, [attempt])
+
+  const userId = profile?.userId
+  useEffect(() => {
+    let active = true
+    if (userId && config?.activityEnabled && screen === 'activity') {
+      void api.activity()
+        .then(value => {
+          if (active) {
+            setFeed(value)
+            api.report('activity_viewed', 'activity')
+          }
+        })
+        .catch(cause => { if (active) handleFailure(cause) })
+    }
+    return () => { active = false }
+  }, [userId, config?.activityEnabled, screen, attempt, handleFailure])
+
+  async function authenticate(submission: AuthSubmission) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      if (submission.kind === 'register') await api.register(submission.credentials)
+      await api.login({ email: submission.credentials.email, password: submission.credentials.password })
+      setProfile(await api.profile())
+      setScreen('activity')
+      api.report(submission.kind === 'register' ? 'signup_completed' : 'login_succeeded', 'auth')
+    } catch (cause) {
+      handleFailure(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveProfile(input: ProfileInput) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      setProfile(await api.updateProfile(input))
+      setNotice('Profile saved.')
+      api.report('profile_saved', 'profile')
+    } catch (cause) {
+      handleFailure(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function logout() {
+    setBusy(true)
+    setError('')
+    try {
+      await api.logout()
+      setProfile(null)
+      setFeed(null)
+      setNotice('You have signed out on all devices.')
+    } catch (cause) {
+      handleFailure(cause)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function navigate(nextScreen: AppScreen) {
+    setScreen(nextScreen)
+    setError('')
+    setNotice('')
+  }
+
+  return <div className="app-shell">
+    <a className="skip-link" href="#main">Skip to content</a>
+    <header className="app-header">
+      <a className="wordmark" href="/">senzy<span>●</span></a>
+      <span className="sandbox-label">Sandbox · no real money</span>
+      {profile && <button className="quiet" onClick={() => void logout()} disabled={busy}>Sign out</button>}
+    </header>
+    {profile && <nav aria-label="Main navigation">
+      <button aria-current={screen === 'activity' ? 'page' : undefined} onClick={() => navigate('activity')}>Activity</button>
+      <button aria-current={screen === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')}>Profile</button>
+    </nav>}
+    <main id="main">
+      <FeedbackBanner error={error} notice={notice} onRetry={() => setAttempt(value => value + 1)} />
+      {loading ? <p role="status">Opening Senzy…</p>
+        : !config ? <section className="auth-card"><h1>Let’s reconnect</h1><p>We couldn’t reach Senzy. Use retry above to connect again.</p></section>
+          : !profile ? <AuthView busy={busy} config={config} onSubmit={submission => void authenticate(submission)} />
+            : screen === 'activity' ? <ActivityView config={config} feed={feed} profile={profile} />
+              : <ProfileView busy={busy} profile={profile} onSave={input => void saveProfile(input)} />}
+    </main>
+    <footer>Made for the moments between people. <span>Senzy sandbox</span></footer>
+  </div>
+}
+
+export function App() {
+  return <ErrorBoundary><SenzyApp /></ErrorBoundary>
+}
