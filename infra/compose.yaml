@@ -31,8 +31,11 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy
+      DataProtection__KeyPath: /home/app/.aspnet/DataProtection-Keys
     ports:
       - "127.0.0.1:4001:8080"
+    volumes:
+      - api-keys:/home/app/.aspnet/DataProtection-Keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,3 +45,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+volumes:
+  api-keys:

@@ -1,0 +1,15 @@
+# Only the backend and SDK selection are needed in the API build context.
+**
+!global.json
+!api-server/
+!api-server/**
+api-server/**/[Bb]in/
+api-server/**/[Oo]bj/
+api-server/.vs/
+api-server/.idea/
+api-server/**/.env*
+api-server/**/appsettings.Local.json
+api-server/**/appsettings.*.Local.json
+api-server/**/*.user
+api-server/**/*.pubxml
+api-server/**/*.publishsettings

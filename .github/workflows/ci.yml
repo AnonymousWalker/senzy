@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: senzy_test
+          POSTGRES_USER: senzy
+          POSTGRES_PASSWORD: senzy_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U senzy -d senzy_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SENZY_TEST_POSTGRES: Host=localhost;Port=5432;Database=senzy_test;Username=senzy;Password=senzy_test_only
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: pnpm install --frozen-lockfile
+      - run: dotnet restore Senzy.slnx
+      - run: pnpm contracts:check
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm lint:mobile
+      - run: pnpm build:web
+      - run: pnpm build:mobile
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan repository history for secrets
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.2
+          git /repo --redact --log-opts="--all"
