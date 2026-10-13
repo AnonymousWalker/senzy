@@ -1,7 +1,28 @@
-# Senzy web
+# Senzy web client
 
-React + TypeScript preview of the Senzy payments product. It currently reads API health and sandbox institution data; it does not move money.
+The React client applies the same pragmatic layered modular-monolith style on the frontend: organize primarily by feature, with a small application layer for composition and shared infrastructure for API access.
 
-From the repository root, run `pnpm install`, `pnpm dev:api`, and `pnpm dev:web` in separate terminals. Open `http://localhost:5173`. The Vite development proxy forwards `/api` to `http://localhost:4001`.
+```text
+src/
+  app/                  Application composition, state orchestration, and navigation
+  api/                  Configured shared-contract client
+  features/
+    activity/           Activity presentation
+    auth/               Registration and sign-in presentation
+    profile/            Profile presentation
+  shared/
+    components/         Reusable, feature-neutral UI
+```
 
-Run `pnpm --filter @senzy/web check` for TypeScript and lint, and `pnpm --filter @senzy/web build` for a production bundle. The sandbox banking endpoint is development-only, so a deployed production build needs an authenticated production API and a different integration before showing live banking data.
+Each module exposes its supported public API through `index.ts`. Import from the module boundary—for example, `../features/auth`—instead of reaching into another module's implementation files. Keep barrels small and explicit: named exports only, no `export *`, and no application-wide barrel that hides feature ownership or encourages dependency cycles.
+
+Prefer named React component and utility exports. Feature components own form and presentation concerns; `app/App.tsx` coordinates API calls and cross-feature session state. Promote code to `shared/` only after it is genuinely feature-neutral and reused. Network request/response types come from `@senzy/contracts`; do not redefine them locally.
+
+The dependency direction is `main → app → features → api/shared`. A feature must not import from `app` or reach into another feature's implementation. Start with a component and local helpers; introduce feature hooks, services, or subfolders only when state or behavior becomes complex enough to justify them.
+
+Run the web checks from the repository root:
+
+```sh
+pnpm --filter @senzy/web check
+pnpm build:web
+```

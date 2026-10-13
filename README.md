@@ -4,11 +4,11 @@ A web-and-mobile peer-to-peer payments foundation. This is an original implement
 
 ## Workspace
 
-- `apps/mobile` — Expo / React Native client
-- `apps/web` — React + TypeScript web preview
-- `api-server` — ASP.NET Core API with health, readiness, OpenAPI, and sandbox banking routes
-- `packages/contracts` — generated OpenAPI types and runtime response validation
-- `tests/Senzy.Api.Tests` — HTTP and PostgreSQL readiness integration tests
+- `apps/mobile` — authenticated Expo / React Native client
+- `apps/web` — authenticated React + TypeScript client
+- `api-server` — ASP.NET Core API with Identity, profiles, activity, health, OpenAPI, and sandbox banking
+- `packages/contracts` — generated OpenAPI types, runtime validation, and the shared API client
+- `tests/Senzy.Api.Tests` — HTTP, authentication, ownership, migration, and PostgreSQL integration tests
 - `infra/compose.yaml` — local PostgreSQL and containerized API
 - `docs/PRODUCT_PLAN.md` — staged delivery plan and safety gates
 
@@ -24,6 +24,8 @@ A web-and-mobile peer-to-peer payments foundation. This is an original implement
 
 ```powershell
 pnpm install --frozen-lockfile
+docker compose -f infra/compose.yaml up -d postgres
+pnpm db:migrate
 pnpm dev:api
 ```
 
@@ -37,14 +39,14 @@ The web preview runs at `http://localhost:5173` and proxies `/api` to the ASP.NE
 
 ## Stub banking provider
 
-The ASP.NET API includes a development-only sandbox banking adapter. It does not call a bank or accept routing or account numbers. Its link sessions and connected accounts are kept in memory and reset whenever the API restarts. These routes have no authentication yet and must not be enabled in a public deployment.
+The ASP.NET API includes a development-only sandbox banking adapter. It does not call a bank or accept routing or account numbers. Its link sessions and connected accounts are kept in memory and reset whenever the API restarts. Account operations require authentication and derive ownership from the session, but the adapter must not be enabled in a public deployment.
 
 Available endpoints:
 
 - `GET /v1/banking/institutions`
 - `POST /v1/banking/link-sessions`
 - `POST /v1/banking/accounts`
-- `GET /v1/banking/accounts/:userId`
+- `GET /v1/banking/accounts`
 
 Banking responses are marked with `provider: "stub-banking"` and `sandbox: true`. `IBankingProvider` is the swap point for a future provider integration; real bank linking is out of scope now.
 
@@ -54,11 +56,14 @@ From the repository root on this Linux host:
 
 ```sh
 mkdir -p /home/tony/data/senzy
-docker compose -f infra/compose.yaml up -d --build --wait
+docker compose -f infra/compose.yaml build api
+docker compose -f infra/compose.yaml up -d --wait postgres
+docker compose -f infra/compose.yaml run --rm --no-deps api --migrate
+docker compose -f infra/compose.yaml up -d --wait
 docker compose -f infra/compose.yaml ps
 ```
 
-PostgreSQL 17 stores its data in `/home/tony/data/senzy`, bind-mounted at `/var/lib/postgresql/data`. Docker initializes the directory's PostgreSQL permissions on first start. The API waits for PostgreSQL to be healthy and connects using the Compose service name `postgres`. Its health check uses `/health/ready`.
+PostgreSQL 17 stores its data in `/home/tony/data/senzy`, bind-mounted at `/var/lib/postgresql/data`. Docker initializes the directory's PostgreSQL permissions on first start. Run the migration command once initially and again whenever a release includes a new migration; API replicas do not migrate automatically. The API waits for PostgreSQL to be healthy and connects using the Compose service name `postgres`. Its health check uses `/health/ready`.
 
 The API is available at `http://localhost:4001`, and PostgreSQL at `localhost:5433` (`senzy` database, username, and local-development password). Host port 5433 avoids the existing database on port 5432; PostgreSQL still listens on 5432 inside Compose. Both published ports bind to loopback. This Compose configuration runs the API in Development so sandbox routes and OpenAPI remain available; it is intended for local development. The API process runs as a non-root user in a multi-stage .NET 10 image.
 
@@ -69,9 +74,9 @@ docker compose -f infra/compose.yaml logs -f api postgres
 docker compose -f infra/compose.yaml down
 ```
 
-`down` removes containers and the Compose network but preserves the database files in `/home/tony/data/senzy`. The previous Compose named volume, if present, is not migrated or deleted by this setup. Use a PostgreSQL dump/restore if you need to transfer existing data. Edit the bind mount source in `infra/compose.yaml` when using another host.
+`down` removes containers and the Compose network but preserves the database files in `/home/tony/data/senzy` and the named `api-keys` volume used for Identity token and cookie protection. Use `down -v` only when you intentionally want to remove that key volume and invalidate protected sessions. The previous database Compose named volume, if present, is not migrated or deleted by this setup. Use a PostgreSQL dump/restore if you need to transfer existing data. Edit the bind mount source in `infra/compose.yaml` when using another host.
 
-The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in a non-development environment. Database schema and migration tooling will be added in Phase 1. The web shell and liveness route run without a database. No payment endpoint exists yet. Money-moving endpoints must require PostgreSQL and transactional, double-entry ledger writes.
+The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in another environment. Run `pnpm db:migrate` for a host-side database or `dotnet tool restore && dotnet ef migrations add <Name> --project api-server` when creating a reviewed migration. No payment endpoint exists yet. Money-moving endpoints must require PostgreSQL and transactional, double-entry ledger writes.
 
 ## Checks
 
@@ -86,7 +91,7 @@ pnpm build:mobile
 
 `pnpm check` checks all TypeScript packages and builds the .NET API. `pnpm test` runs available workspace tests and the .NET integration suite. The database-success test is explicitly skipped locally unless `SENZY_TEST_POSTGRES` is set to a test database connection string; CI requires it and starts PostgreSQL automatically. Other tests cover unavailable/unconfigured databases without needing PostgreSQL.
 
-For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy` before running tests. The current readiness test only executes `SELECT 1`; future persistence tests will need a dedicated disposable database.
+For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy` before running tests. Each persistence test creates and drops an isolated PostgreSQL schema; do not point this variable at a production database.
 
 `pnpm contracts:generate` updates committed OpenAPI and TypeScript artifacts after API changes. `pnpm contracts:check` validates runtime response samples and detects generated-file drift. See the [contract workflow](packages/contracts/README.md).
 
@@ -94,10 +99,13 @@ For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Por
 
 ## Architecture and planning
 
+- [Repository engineering instructions](AGENTS.md)
 - [API organization](api-server/README.md)
+- [Web client organization](apps/web/README.md)
 - [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md)
 - [Workload and reliability targets](docs/OPERATING_TARGETS.md)
 - [Initial threat model](docs/THREAT_MODEL.md)
 - [Phase 0 verification](docs/PHASE_0.md)
+- [Phase 1 verification](docs/PHASE_1.md)
 
 This codebase is a development foundation, not a production-ready financial service. See the product plan for compliance, fraud, security, reconciliation, and operational requirements that must be completed before real funds are handled.

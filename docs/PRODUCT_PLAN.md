@@ -47,9 +47,9 @@ The API may return a pending result when an external workflow is required. It mu
 
 ## Current state
 
-The repository contains an Expo mobile shell, a React + TypeScript web preview, an ASP.NET Core API scaffold with liveness, PostgreSQL readiness, development-only OpenAPI, development-only in-memory stub banking routes, generated OpenAPI TypeScript types, and shared Zod runtime validators. Baseline .NET API tests and a CI workflow cover contracts, builds, mobile exports, PostgreSQL readiness, sandbox behavior, and secret scanning. The web client consumes health and sandbox institution data through the shared contracts. Authentication, payments, ledger writes, and database migrations remain unimplemented.
+Phases 0 and 1 are implemented locally. The ASP.NET Core API now provides PostgreSQL-backed Identity, browser-cookie and mobile-bearer sessions, CSRF/origin protection, session revocation, profiles with unique payment handles, private fixture activity, feature configuration, allowlisted client telemetry, consistent Problem Details, correlation IDs, rate limits, and authenticated ownership for sandbox banking data. EF Core owns the reviewed initial migration and explicit migration command.
 
-Build subsequent API features in ASP.NET Core and connect both clients through its versioned contract. Add API tests alongside authentication and the transactional payment implementation.
+The React and Expo clients use the same shared API client and generated OpenAPI contract. Both support registration, sign-in, profile editing, activity, sign-out, loading/error/empty states, and client error reporting. The fixture feed and all banking data remain explicitly simulated; payments, balances, ledger writes, and real-money movement are still unimplemented. Phase 2 is next.
 
 ### Repository layout
 
@@ -84,9 +84,9 @@ The root `package.json` provides workspace commands; pnpm manages the frontend a
 
 Exit: architecture decisions and the contract workflow are agreed; the existing prototype remains reproducible and CI runs the required checks.
 
-Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured; its first hosted run remains pending commit/push. Phase 1 feature implementation is next.
+Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured; its first hosted run remains pending commit/push. Phase 1 is also complete; Phase 2 is next.
 
-### Phase 1 — React web and ASP.NET Core API (scaffold complete; features pending)
+### Phase 1 — authenticated web and mobile prototype (implemented and locally verified)
 
 - Completed: React + TypeScript preview in `apps/web` beside `apps/mobile`, and the ASP.NET Core API scaffold in `api-server`.
 - Completed: liveness, PostgreSQL readiness, development-only OpenAPI, and development-only stub banking routes that reject raw bank account and routing number fields.
@@ -96,6 +96,8 @@ Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflo
 - Add accessible web and mobile navigation, analytics taxonomy, crash reporting, and feature flags.
 
 Exit: both clients use the ASP.NET Core API for an authenticated non-money prototype; bank setup remains entirely stubbed.
+
+Evidence: [Phase 1 verification](PHASE_1.md), [API architecture](../api-server/README.md), [shared contract workflow](../packages/contracts/README.md), the reviewed EF migration, PostgreSQL integration tests, and web/mobile production exports. A physical-device and browser visual smoke test remains a manual follow-up; automated contract, build, API, and container checks passed locally.
 
 ### Phase 2 — simulated payments and ledger
 
@@ -151,9 +153,9 @@ Exit: explicit production approval, stable cohort metrics, and reconciled financ
 
 1. Completed in Phase 0: record ASP.NET Core service boundaries, authentication, and API contract decisions.
 2. Completed in Phase 0: establish generated OpenAPI-to-TypeScript contracts shared by both workspaces; connect mobile screens as Phase 1 features arrive.
-3. Add PostgreSQL schema and migration tooling under `api-server`.
+3. Completed in Phase 1: add PostgreSQL schema and explicit migration tooling under `api-server`.
 4. Completed locally in Phase 0: automated health, readiness, and sandbox banking tests, including validation and concurrent one-time link-token behavior; checks and tests are wired into CI, awaiting the first hosted run.
-5. Add authentication, profiles, and fixture-backed activity to web and mobile.
+5. Completed in Phase 1: add authentication, profiles, fixture-backed activity, telemetry, and feature flags to web and mobile.
 6. Implement the payment state machine and transactional ledger posting.
 7. Add concurrency, idempotency, and failure-injection tests.
 8. Add simulated funding, reconciliation, and an outbox worker.
