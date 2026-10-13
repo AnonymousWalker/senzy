@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @senzy/web --filter @senzy/mobile dev",
     "dev:api": "dotnet watch run --project api-server/Senzy.Api.csproj --launch-profile http",
+    "db:migrate": "dotnet run --project api-server/Senzy.Api.csproj -- --migrate",
     "dev:web": "pnpm --filter @senzy/web dev",
     "dev:mobile": "pnpm --filter @senzy/mobile dev",
     "check": "pnpm -r --if-present check && dotnet build api-server/Senzy.Api.csproj",

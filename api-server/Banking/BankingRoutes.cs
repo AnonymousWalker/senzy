@@ -1,12 +1,15 @@
 using System.Text.Json.Serialization;
+using System.Security.Claims;
+using Senzy.Api.Common;
+using Senzy.Api.Features.Profiles;
 
 namespace Senzy.Api.Banking;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record CreateLinkSessionRequest(Guid UserId);
+public sealed record CreateLinkSessionRequest;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record ConnectAccountRequest(Guid UserId, string LinkToken, string InstitutionId,
+public sealed record ConnectAccountRequest(string LinkToken, string InstitutionId,
     string DisplayName, string AccountKind);
 
 public sealed record InstitutionsResponse(string Provider, bool Sandbox, IReadOnlyList<BankingInstitution> Institutions);
@@ -17,44 +20,40 @@ public static class BankingRoutes
 {
     public static void MapBankingRoutes(this WebApplication app)
     {
-        var group = app.MapGroup("/v1/banking").WithTags("Sandbox banking");
+        var group = app.MapGroup("/v1/banking").WithTags("Sandbox banking").RequireAuthorization();
 
         group.MapGet("/institutions", (IBankingProvider provider) =>
             TypedResults.Ok(new InstitutionsResponse("stub-banking", true, provider.ListInstitutions())))
-            .WithName("ListInstitutions");
+            .AllowAnonymous().WithName("ListInstitutions");
 
-        group.MapPost("/link-sessions", (CreateLinkSessionRequest request, IBankingProvider provider) =>
-            request.UserId == Guid.Empty
-                ? Results.BadRequest(new { error = "A valid userId is required." })
-                : Results.Created("/v1/banking/link-sessions", provider.CreateLinkSession(request.UserId)))
+        group.MapPost("/link-sessions", (CreateLinkSessionRequest request, ClaimsPrincipal actor, IBankingProvider provider) =>
+            Results.Created("/v1/banking/link-sessions", provider.CreateLinkSession(ProfileRoutes.ActorId(actor))))
             .WithName("CreateLinkSession")
-            .Produces<BankLinkSession>(201).Produces<BankingError>(400);
+            .Produces<BankLinkSession>(201).ProducesProblem(400);
 
-        group.MapPost("/accounts", (ConnectAccountRequest request, IBankingProvider provider) =>
+        group.MapPost("/accounts", (ConnectAccountRequest request, ClaimsPrincipal actor, IBankingProvider provider) =>
         {
-            if (request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.LinkToken) ||
+            if (string.IsNullOrWhiteSpace(request.LinkToken) ||
                 string.IsNullOrWhiteSpace(request.InstitutionId) ||
                 string.IsNullOrWhiteSpace(request.DisplayName) || request.DisplayName.Trim().Length > 80 ||
                 request.AccountKind is not ("checking" or "savings"))
-                return Results.BadRequest(new { error = "Invalid sandbox account request." });
+                return ApiErrors.Problem(400, "invalid_account", "Invalid sandbox account request.");
 
             try
             {
-                return Results.Created("/v1/banking/accounts", provider.ConnectAccount(request.UserId,
+                return Results.Created("/v1/banking/accounts", provider.ConnectAccount(ProfileRoutes.ActorId(actor),
                     request.LinkToken, request.InstitutionId, request.DisplayName, request.AccountKind));
             }
             catch (BankingProviderException error)
             {
-                return Results.BadRequest(new { error = error.Message });
+                return ApiErrors.Problem(400, "invalid_link_session", error.Message);
             }
         }).WithName("ConnectAccount")
-            .Produces<ExternalBankAccount>(201).Produces<BankingError>(400);
+            .Produces<ExternalBankAccount>(201).ProducesProblem(400);
 
-        group.MapGet("/accounts/{userId:guid}", (Guid userId, IBankingProvider provider) =>
-            userId == Guid.Empty
-                ? Results.BadRequest(new { error = "A valid userId is required." })
-                : Results.Ok(new AccountsResponse("stub-banking", true, provider.ListAccounts(userId))))
+        group.MapGet("/accounts", (ClaimsPrincipal actor, IBankingProvider provider) =>
+            Results.Ok(new AccountsResponse("stub-banking", true, provider.ListAccounts(ProfileRoutes.ActorId(actor)))))
             .WithName("ListAccounts")
-            .Produces<AccountsResponse>().Produces<BankingError>(400);
+            .Produces<AccountsResponse>();
     }
 }

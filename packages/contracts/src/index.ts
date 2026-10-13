@@ -29,7 +29,6 @@ export const institutionsResponseSchema = z.object({
 
 export const createBankLinkSessionRequestSchema = z
   .object({
-    userId: z.uuid(),
   })
   .strict();
 
@@ -42,7 +41,6 @@ export const bankLinkSessionSchema = z.object({
 
 export const connectBankAccountRequestSchema = z
   .object({
-    userId: z.uuid(),
     linkToken: z.string().startsWith('stub_link_'),
     institutionId: z.string().min(1),
     accountKind: z.enum(['checking', 'savings']),
@@ -70,3 +68,22 @@ export type CreateBankLinkSessionRequest = z.infer<typeof createBankLinkSessionR
 export type BankLinkSession = z.infer<typeof bankLinkSessionSchema>;
 export type ConnectBankAccountRequest = z.infer<typeof connectBankAccountRequestSchema>;
 export type ExternalBankAccount = z.infer<typeof externalBankAccountSchema>;
+
+export const profileSchema = z.object({
+  userId: z.uuid(), displayName: z.string(), handle: z.string(), createdAt: z.iso.datetime({ offset: true }),
+});
+export const configurationSchema = z.object({
+  registrationEnabled: z.boolean(), activityEnabled: z.boolean(), telemetryEnabled: z.boolean(), sandboxBankingEnabled: z.boolean(),
+});
+export const activitySchema = z.object({
+  userId: z.uuid(), isFixture: z.literal(true), items: z.array(z.object({
+    id: z.string(), title: z.string(), description: z.string(), kind: z.enum(['sent', 'received']),
+    amountMinor: z.number().int().nonnegative().safe(), currency: z.literal('USD'), occurredAt: z.iso.datetime({ offset: true }),
+  })),
+});
+export const tokenSchema = z.object({ tokenType: z.string(), accessToken: z.string(), expiresIn: z.number(), refreshToken: z.string() });
+export const csrfSchema = z.object({ token: z.string() });
+export const problemSchema = z.object({ detail: z.string().optional(), title: z.string().optional(), code: z.string().optional(), traceId: z.string().optional() });
+export type Profile = z.infer<typeof profileSchema>;
+export type ClientConfiguration = z.infer<typeof configurationSchema>;
+export type ActivityFeed = z.infer<typeof activitySchema>;

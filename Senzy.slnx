@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="api-server/Senzy.Api.csproj" />
+  <Project Path="tests/Senzy.Api.Tests/Senzy.Api.Tests.csproj" />
+  <Project Path="tools/Senzy.ContractExport/Senzy.ContractExport.csproj" />
+</Solution>
