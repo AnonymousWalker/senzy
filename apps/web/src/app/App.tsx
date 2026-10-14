@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ActivityFeed, ClientConfiguration, Profile } from '@senzy/contracts'
+import type { ClientConfiguration, CreatePaymentRequest, Payment, PaymentRequest, Profile, TransferRequest, Wallet } from '@senzy/contracts'
 import type { ProfileInput } from '@senzy/contracts/client'
 import { ApiError } from '@senzy/contracts/client'
 import { api } from '../api'
@@ -14,7 +14,9 @@ import '../App.css'
 function SenzyApp() {
   const [config, setConfig] = useState<ClientConfiguration | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [feed, setFeed] = useState<ActivityFeed | null>(null)
+  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [payments, setPayments] = useState<Payment[] | null>(null)
+  const [requests, setRequests] = useState<PaymentRequest[] | null>(null)
   const [screen, setScreen] = useState<AppScreen>('activity')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -26,7 +28,9 @@ function SenzyApp() {
     setError(getErrorMessage(cause))
     if (cause instanceof ApiError && cause.status === 401) {
       setProfile(null)
-      setFeed(null)
+      setWallet(null)
+      setPayments(null)
+      setRequests(null)
     } else if (!(cause instanceof ApiError) || cause.status >= 500) {
       api.report('client_error', screen)
     }
@@ -62,18 +66,20 @@ function SenzyApp() {
   const userId = profile?.userId
   useEffect(() => {
     let active = true
-    if (userId && config?.activityEnabled && screen === 'activity') {
-      void api.activity()
-        .then(value => {
+    if (userId && screen === 'activity') {
+      void Promise.all([api.wallet(), api.payments(), api.paymentRequests()])
+        .then(([nextWallet, nextPayments, nextRequests]) => {
           if (active) {
-            setFeed(value)
+            setWallet(nextWallet)
+            setPayments(nextPayments.items)
+            setRequests(nextRequests.items)
             api.report('activity_viewed', 'activity')
           }
         })
         .catch(cause => { if (active) handleFailure(cause) })
     }
     return () => { active = false }
-  }, [userId, config?.activityEnabled, screen, attempt, handleFailure])
+  }, [userId, screen, attempt, handleFailure])
 
   async function authenticate(submission: AuthSubmission) {
     setBusy(true)
@@ -113,7 +119,9 @@ function SenzyApp() {
     try {
       await api.logout()
       setProfile(null)
-      setFeed(null)
+      setWallet(null)
+      setPayments(null)
+      setRequests(null)
       setNotice('You have signed out on all devices.')
     } catch (cause) {
       handleFailure(cause)
@@ -126,6 +134,24 @@ function SenzyApp() {
     setScreen(nextScreen)
     setError('')
     setNotice('')
+  }
+
+  async function runPaymentAction(action: () => Promise<unknown>, success: string) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      await action()
+      const [nextWallet, nextPayments, nextRequests] = await Promise.all([api.wallet(), api.payments(), api.paymentRequests()])
+      setWallet(nextWallet)
+      setPayments(nextPayments.items)
+      setRequests(nextRequests.items)
+      setNotice(success)
+    } catch (cause) {
+      handleFailure(cause)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return <div className="app-shell">
@@ -144,7 +170,11 @@ function SenzyApp() {
       {loading ? <p role="status">Opening Senzy…</p>
         : !config ? <section className="auth-card"><h1>Let’s reconnect</h1><p>We couldn’t reach Senzy. Use retry above to connect again.</p></section>
           : !profile ? <AuthView busy={busy} config={config} onSubmit={submission => void authenticate(submission)} />
-            : screen === 'activity' ? <ActivityView config={config} feed={feed} profile={profile} />
+            : screen === 'activity' ? <ActivityView busy={busy} payments={payments} profile={profile} requests={requests} wallet={wallet}
+              onSend={(input: TransferRequest) => void runPaymentAction(() => api.sendPayment(input), 'Simulated payment posted.')}
+              onRequest={(input: CreatePaymentRequest) => void runPaymentAction(() => api.createPaymentRequest(input), 'Payment request created.')}
+              onAcceptRequest={id => void runPaymentAction(() => api.acceptPaymentRequest(id), 'Payment request paid.')}
+              onReverse={id => void runPaymentAction(() => api.reversePayment(id), 'Payment reversed with a compensating ledger entry.')} />
               : <ProfileView busy={busy} profile={profile} onSave={input => void saveProfile(input)} />}
     </main>
     <footer>Made for the moments between people. <span>Senzy sandbox</span></footer>

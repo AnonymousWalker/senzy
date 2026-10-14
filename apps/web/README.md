@@ -7,7 +7,7 @@ src/
   app/                  Application composition, state orchestration, and navigation
   api/                  Configured shared-contract client
   features/
-    activity/           Activity presentation
+    activity/           Simulated wallet, payment, request, and history presentation
     auth/               Registration and sign-in presentation
     profile/            Profile presentation
   shared/

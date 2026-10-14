@@ -23,6 +23,9 @@ export const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#c8d6c0', borderRadius: 12, padding: 14, fontSize: 16, color: '#193c2b', backgroundColor: '#fff', minHeight: 48 },
   button: { backgroundColor: '#214e32', padding: 16, borderRadius: 12, alignItems: 'center', minHeight: 50 }, buttonText: { fontWeight: '700', color: '#fff', fontSize: 16 },
   notice: { color: '#713e26', backgroundColor: '#fff0df', padding: 12, borderRadius: 10, lineHeight: 22 },
+  success: { color: '#214e32', backgroundColor: '#e5efdc', padding: 12, borderRadius: 10, lineHeight: 22 },
   card: { backgroundColor: '#fff', borderColor: '#dce6d6', borderWidth: 1, padding: 20, borderRadius: 18, gap: 10 },
+  switcher: { flexDirection: 'row', gap: 12 },
+  paymentAmount: { color: '#193c2b', fontSize: 24, fontWeight: '700' },
   balance: { backgroundColor: '#193e2b', padding: 24, borderRadius: 20, gap: 12 }, amount: { fontSize: 38, color: '#fff', fontWeight: '600' },
 });
