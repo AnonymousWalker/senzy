@@ -1,12 +1,12 @@
 # Senzy
 
-A web-and-mobile peer-to-peer payments foundation. This is an original implementation and does not contain Venmo branding or proprietary code. All banking is simulated; payments and real-money movement are not implemented.
+A web-and-mobile peer-to-peer payments foundation. This is an original implementation and does not contain Venmo branding or proprietary code. Payments, balances, and banking are simulated; real-money movement is not implemented.
 
 ## Workspace
 
 - `apps/mobile` — authenticated Expo / React Native client
 - `apps/web` — authenticated React + TypeScript client
-- `api-server` — ASP.NET Core API with Identity, profiles, activity, health, OpenAPI, and sandbox banking
+- `api-server` — ASP.NET Core API with Identity, profiles, simulated payments, a double-entry ledger, health, OpenAPI, and sandbox banking
 - `packages/contracts` — generated OpenAPI types, runtime validation, and the shared API client
 - `tests/Senzy.Api.Tests` — HTTP, authentication, ownership, migration, and PostgreSQL integration tests
 - `infra/compose.yaml` — local PostgreSQL and containerized API
@@ -76,7 +76,7 @@ docker compose -f infra/compose.yaml down
 
 `down` removes containers and the Compose network but preserves the database files in `/home/tony/data/senzy` and the named `api-keys` volume used for Identity token and cookie protection. Use `down -v` only when you intentionally want to remove that key volume and invalidate protected sessions. The previous database Compose named volume, if present, is not migrated or deleted by this setup. Use a PostgreSQL dump/restore if you need to transfer existing data. Edit the bind mount source in `infra/compose.yaml` when using another host.
 
-The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in another environment. Run `pnpm db:migrate` for a host-side database or `dotnet tool restore && dotnet ef migrations add <Name> --project api-server` when creating a reviewed migration. No payment endpoint exists yet. Money-moving endpoints must require PostgreSQL and transactional, double-entry ledger writes.
+The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in another environment. Run `pnpm db:migrate` for a host-side database or `dotnet tool restore && dotnet ef migrations add <Name> --project api-server` when creating a reviewed migration. Simulated payment endpoints require PostgreSQL and commit the payment, idempotency result, double-entry ledger posting, balance projection, and outbox record atomically.
 
 ## Checks
 
@@ -107,5 +107,6 @@ For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Por
 - [Initial threat model](docs/THREAT_MODEL.md)
 - [Phase 0 verification](docs/PHASE_0.md)
 - [Phase 1 verification](docs/PHASE_1.md)
+- [Phase 2 verification](docs/PHASE_2.md)
 
 This codebase is a development foundation, not a production-ready financial service. See the product plan for compliance, fraud, security, reconciliation, and operational requirements that must be completed before real funds are handled.

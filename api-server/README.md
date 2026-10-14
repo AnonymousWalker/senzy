@@ -29,13 +29,13 @@ flowchart TB
     Worker --> Consumers[Notifications and other consumers]
 ```
 
-Identity, EF Core persistence for users/profiles, endpoints, Npgsql connectivity, and the banking stub exist today. Payment use cases, the ledger, and the outbox worker are Phase 2 or later work. Web and mobile both call the authenticated API through the shared contract client. All application modules execute in the same process. No Redis or Kafka deployment is required for the initial implementation.
+Identity, EF Core persistence, simulated payment use cases, the ledger, atomic outbox records, Npgsql connectivity, and the banking stub exist today. Outbox delivery and reconciliation are Phase 3 work. Web and mobile both call the authenticated API through the shared contract client. All application modules execute in the same process. No Redis or Kafka deployment is required for the initial implementation.
 
 ## Current implementation — implemented
 
-The API currently contains feature modules for health, configuration, Identity, profiles, fixture activity, client telemetry, and sandbox banking. `SenzyDbContext` persists Identity and profiles through the reviewed initial EF Core migration. Cross-cutting middleware supplies correlation IDs, structured request logs, consistent Problem Details, CORS, cookie antiforgery/origin checks, session-stamp validation, authorization, and rate limits. Data Protection keys persist through the Compose `api-keys` volume.
+The API currently contains feature modules for health, configuration, Identity, profiles, simulated payments, the ledger, fixture activity, client telemetry, and sandbox banking. `SenzyDbContext` persists Identity, profiles, wallets, payments, requests, ledger records, scoped idempotency outcomes, and outbox records through reviewed EF Core migrations. Cross-cutting middleware supplies correlation IDs, structured request logs, consistent Problem Details, CORS, cookie antiforgery/origin checks, session-stamp validation, authorization, and rate limits. Data Protection keys persist through the Compose `api-keys` volume.
 
-HTTP and PostgreSQL integration tests live in `tests/Senzy.Api.Tests`; OpenAPI export tooling lives in `tools/Senzy.ContractExport`. Payment processing, ledger posting, durable outbox delivery, and real banking are not implemented. The layout below includes both implemented Phase 1 modules and the planned Phase 2 boundaries.
+HTTP, domain, and PostgreSQL integration tests live in `tests/Senzy.Api.Tests`; OpenAPI export tooling lives in `tools/Senzy.ContractExport`. Payment processing and ledger posting are implemented for simulated internal USD transfers. Durable outbox delivery, reconciliation, simulated funding, and real banking are not implemented.
 
 See the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md) for authentication, persistence, payment states, and contract decisions.
 
@@ -53,6 +53,13 @@ See the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md) for authenti
 | `GET /v1/profile` | Profiles | Authenticated private profile. |
 | `PUT /v1/profile` | Profiles | Authenticated display-name/handle update. |
 | `GET /v1/activity` | Activity | Authenticated, private fixture data; never ledger data. |
+| `GET /v1/wallet/` | Ledger/Payments | Authenticated simulated USD available and settled balance. |
+| `GET /v1/payments/` | Payments | Authenticated private sent/received payment history. |
+| `POST /v1/payments/` | Payments | Authenticated idempotent simulated send with atomic ledger/outbox posting. |
+| `POST /v1/payments/{id}/reverse` | Payments | Sender-only idempotent full compensating reversal. |
+| `GET /v1/payment-requests/` | Payments | Authenticated private incoming/outgoing request history. |
+| `POST /v1/payment-requests/` | Payments | Authenticated idempotent request creation. |
+| `POST /v1/payment-requests/{id}/accept` | Payments | Payer-only idempotent request acceptance and posting. |
 | `POST /v1/telemetry` | Telemetry | Authenticated allowlisted analytics/error event. |
 | `GET /v1/banking/institutions` | Banking | Development only; sandbox institution list. |
 | `POST /v1/banking/link-sessions` | Banking | Development and authenticated; creates an actor-bound, 15-minute link token. |
@@ -82,18 +89,18 @@ api-server/
       BankingEndpoints.cs
       IBankingProvider.cs
     Payments/
-      SendPayment/
-        Endpoint.cs
-        Request.cs
-        Handler.cs
-      GetPayment/
-      ReversePayment/
-      Payment.cs
-      PaymentStatus.cs
+      Application/
+        PaymentContracts.cs
+        PaymentService.cs
+      Domain/
+        PaymentModels.cs
+      PaymentRoutes.cs
     Ledger/
-      LedgerAccount.cs
-      LedgerTransaction.cs
-      LedgerPostingService.cs
+      Application/
+        SandboxWalletService.cs
+      Domain/
+        LedgerModels.cs
+        LedgerPostingService.cs
     Activity/
       ActivityRoutes.cs
     Configuration/
@@ -103,17 +110,14 @@ api-server/
   Infrastructure/
     Persistence/
       SenzyDbContext.cs
+      OperationalModels.cs
       Migrations/
     Banking/
       StubBankingProvider.cs
-    Outbox/
-      OutboxMessage.cs
-      OutboxWorker.cs
   Common/
     ApiErrors.cs
 tests/
-  Senzy.Api.Tests/                # Existing HTTP/integration test project
-  Senzy.Domain.Tests/             # Add with payment/ledger domain rules
+  Senzy.Api.Tests/                # HTTP, domain, and PostgreSQL integration tests
 tools/
   Senzy.ContractExport/           # Existing in-memory OpenAPI exporter
 ```
@@ -198,7 +202,7 @@ Use 400 for invalid input, 401 for missing/invalid authentication, 403 for denie
 
 ## Persistence model
 
-Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL through the Npgsql EF provider. Keep reviewed migrations in `Infrastructure/Persistence/Migrations/` and add separate entity-configuration classes as the model grows. Identity users and profiles are implemented in the initial migration; the remaining records below are Phase 2 or later designs.
+Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL through the Npgsql EF provider. Keep reviewed migrations in `Infrastructure/Persistence/Migrations/` and add separate entity-configuration classes as the model grows. The records below are implemented by the initial and Phase 2 migrations.
 
 | Record | Key relationships and constraints |
 | --- | --- |
@@ -213,7 +217,7 @@ Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL
 
 Use `long` amounts in .NET/PostgreSQL-compatible integer storage and keep exposed JSON values within JavaScript's safe integer range. Start with USD and no FX. Available balance and settled balance have separate meanings; future holds need their own explicit model.
 
-Database constraints enforce uniqueness, references, and valid row values. A row-level check alone cannot enforce the aggregate balance of a multi-entry transaction: the controlled posting path must validate it before commit, and Phase 2 must review database-level write restrictions and enforcement. Ledger entries remain the financial record; any maintained balance is a transactionally updated projection that must reconcile to them.
+Database constraints enforce uniqueness, references, and valid row values. A row-level check alone cannot enforce the aggregate balance of a multi-entry transaction: `LedgerPostingService` constructs equal debit and credit entries and validates the aggregate before commit. Ledger entries remain the financial record; the maintained balance is a transactionally updated projection that must reconcile to them. Restricting the deployment database role from bypassing the controlled posting path remains a pre-pilot hardening task.
 
 Run migrations as an explicit deployment step, not independently from every API replica. SQL used for locking must share the DbContext's connection and active transaction.
 
@@ -241,9 +245,9 @@ Required invariants:
 
 External provider calls must not be treated as atomic with PostgreSQL. Future external workflows need explicit pending states, durable work, retries, and reconciliation. Clients never write directly to the ledger or banking provider.
 
-### Concrete send-payment flow — Phase 2 design
+### Concrete send-payment flow — implemented in Phase 2
 
-`Features/Payments/SendPayment/Handler.cs` coordinates the following operation. The lock strategy below is the starting design to validate with PostgreSQL concurrency tests before the endpoint is enabled.
+`Features/Payments/Application/PaymentService.cs` coordinates the following operation. PostgreSQL concurrency, retry, and rollback tests validate the locking strategy.
 
 1. Authenticate the sender, validate amount/currency, resolve the recipient, and compute the canonical request fingerprint.
 2. Begin the PostgreSQL transaction and claim the unique actor/operation/idempotency key. A duplicate waits for the competing transaction's outcome, then replays a matching committed result or rejects a changed fingerprint. Do not continue an aborted PostgreSQL transaction after a uniqueness error; use conflict-safe insertion or restart the transaction.
@@ -254,7 +258,7 @@ External provider calls must not be treated as atomic with PostgreSQL. Future ex
 
 Insufficient funds or invalid state must not leave partial postings. Define which business rejections are persisted as idempotent outcomes before implementation. Deadlock/serialization retries are bounded and repeat the whole transaction, not only its final write. No provider HTTP call occurs while account locks are held.
 
-### Payment state machine — planned
+### Payment state machine — implemented for internal transfers and reversals
 
 | Transition | Condition |
 | --- | --- |
@@ -282,7 +286,7 @@ Add Redis for measured caching or rate-limit needs, and Kafka when throughput or
 - Add failure-injection tests around commit and retry boundaries, and verify balanced entries and absence of duplicate postings.
 - Add contract checks so changes to the API cannot silently drift from the web and mobile clients.
 
-The root `pnpm test` command runs available TypeScript workspace tests and the .NET integration suite. CI supplies PostgreSQL. Locally, set `SENZY_TEST_POSTGRES` to enable PostgreSQL tests; each test host creates and drops an isolated schema. The current suite covers migrations, authentication, CSRF/origin enforcement, bearer refresh/revocation, profile persistence and uniqueness, ownership, lockout, telemetry, feature flags, health, and the banking sandbox. Ledger invariant tests arrive with Phase 2.
+The root `pnpm test` command runs available TypeScript workspace tests and the .NET integration suite. CI supplies PostgreSQL. Locally, set `SENZY_TEST_POSTGRES` to enable PostgreSQL tests; each test host creates and drops an isolated schema. The current suite covers migrations, authentication, CSRF/origin enforcement, bearer refresh/revocation, profile persistence and uniqueness, ownership, lockout, telemetry, feature flags, health, banking sandbox ownership, ledger invariants, state transitions, payment/request ownership, idempotency, concurrent overspending, reversal, and transaction rollback through failure injection.
 
 ## Runtime and deployment — implemented
 
@@ -301,8 +305,8 @@ Compose currently runs in Development and publishes only to loopback, making san
 
 1. Phase 0 implemented: health module, contract export/generation, baseline tests, CI configuration, and local container deployment. The first hosted CI run is tracked separately in the [verification record](../docs/PHASE_0.md).
 2. Phase 1 implemented: `SenzyDbContext`, the initial migration, Identity, cookie/bearer sessions, ownership policies, consistent errors, tracing, profiles, private fixture activity, feature flags, telemetry, and authenticated sandbox ownership.
-3. Phase 2: implement the payment state machine, send/reversal handlers, ledger posting, durable idempotency, and atomic outbox writes. Prove the locking and posting invariants with PostgreSQL concurrency/retry/failure tests.
-4. Phase 3: add simulated funding, reconciliation, outbox delivery, and operations views.
+3. Phase 2 implemented: payment/request state machines, send/accept/reversal use cases, ledger posting, durable idempotency, atomic outbox writes, web/mobile experiences, and PostgreSQL concurrency/retry/failure tests.
+4. Phase 3 next: add simulated funding, reconciliation, outbox delivery, and operations views.
 5. Phase 4 and later: validate the [operating targets](../docs/OPERATING_TARGETS.md), add measured scaling components, and complete launch gates from the product plan.
 
 ## Local development

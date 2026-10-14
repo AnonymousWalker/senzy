@@ -10,11 +10,11 @@ Protect identities, sessions, private activity, balances, immutable ledger recor
 
 | Threat | Control and verification | Phase/status |
 | --- | --- | --- |
-| Client claims another user's identity or reads their accounts | Derive actor from authentication; check resource ownership in each use case; cross-user authorization tests. | Phase 1 planned. Stub IDs are not authentication. |
-| Password guessing, account enumeration, stolen sessions | Identity hashing/lockout, rate limits, non-enumerating recovery, short-lived credentials, protected mobile storage, tested logout/recovery; MFA before external pilot. | Phase 1 and pilot controls planned. |
-| CSRF or browser token theft | HTTP-only Secure cookies, antiforgery validation, origin policy; avoid unsafe HTML and token storage in local storage. | Phase 1 planned. |
-| Duplicate sends or concurrent overspending | Durable scoped idempotency, request fingerprint checks, database uniqueness and locking; retry/concurrency/failure tests. | Phase 2 planned. |
-| Ledger manipulation or partial posting | Balanced immutable entries; one posting transaction; constrained database role; linked reversals and audit trail. | Phase 2 planned. |
+| Client claims another user's identity or reads their accounts | Derive actor from authentication; check resource ownership in each use case; cross-user authorization tests. | Implemented and tested for current Phase 1–2 resources. Stub IDs are not authentication. |
+| Password guessing, account enumeration, stolen sessions | Identity hashing/lockout, rate limits, non-enumerating recovery, short-lived credentials, protected mobile storage, tested logout/recovery; MFA before external pilot. | Phase 1 controls implemented; recovery delivery and pilot MFA remain planned. |
+| CSRF or browser token theft | HTTP-only Secure cookies, antiforgery validation, origin policy; avoid unsafe HTML and token storage in local storage. | Implemented and tested for the current cookie client. |
+| Duplicate sends or concurrent overspending | Durable scoped idempotency, request fingerprint checks, database uniqueness and locking; retry/concurrency/failure tests. | Implemented and tested against PostgreSQL in Phase 2. |
+| Ledger manipulation or partial posting | Balanced immutable entries; one posting transaction; constrained database role; linked reversals and audit trail. | Posting, rollback, and reversals implemented and tested; constrained deployment database roles remain pre-pilot work. |
 | Sandbox accidentally exposed publicly | Development-only route registration, production-route absence tests, deployment environment review. Development instances stay local/private. | Route guard and tests in Phase 0; deployment review ongoing. |
 | Raw bank credentials or token replay | Reject unknown raw bank fields; bind link tokens to user, enforce expiry and one-time use; test malformed input and concurrent token reuse. | Stub control exists; baseline tests in Phase 0. |
 | Forged/replayed provider callbacks | Verify signatures and timestamps, deduplicate provider IDs, reconcile settlement. Never trust callback status without validation. | Required before a real provider; out of prototype scope. |

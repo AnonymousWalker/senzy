@@ -47,9 +47,9 @@ The API may return a pending result when an external workflow is required. It mu
 
 ## Current state
 
-Phases 0 and 1 are implemented locally. The ASP.NET Core API now provides PostgreSQL-backed Identity, browser-cookie and mobile-bearer sessions, CSRF/origin protection, session revocation, profiles with unique payment handles, private fixture activity, feature configuration, allowlisted client telemetry, consistent Problem Details, correlation IDs, rate limits, and authenticated ownership for sandbox banking data. EF Core owns the reviewed initial migration and explicit migration command.
+Phases 0, 1, and 2 are implemented and locally verified. The ASP.NET Core API provides PostgreSQL-backed Identity, browser-cookie and mobile-bearer sessions, CSRF/origin protection, session revocation, profiles with unique payment handles, simulated USD wallets, sends, requests, reversals, payment history, feature configuration, allowlisted client telemetry, consistent Problem Details, correlation IDs, rate limits, and authenticated ownership for sandbox banking data. EF Core owns the reviewed migrations and explicit migration command.
 
-The React and Expo clients use the same shared API client and generated OpenAPI contract. Both support registration, sign-in, profile editing, activity, sign-out, loading/error/empty states, and client error reporting. The fixture feed and all banking data remain explicitly simulated; payments, balances, ledger writes, and real-money movement are still unimplemented. Phase 2 is next.
+The React and Expo clients use the same shared API client and generated OpenAPI contract. Both support registration, sign-in, profile editing, a simulated balance, sends, payment requests, request acceptance, full reversals, payment history, sign-out, loading/error/empty states, and client error reporting. Every new user receives a balanced $1,000 sandbox opening entry. Payment, idempotency, balanced ledger entries, balance projections, and an outbox record commit in one PostgreSQL transaction. Banking and payments remain explicitly simulated; outbox delivery, reconciliation, simulated cash-in/cash-out, and all real-money movement are unimplemented. Phase 3 is next.
 
 ### Repository layout
 
@@ -84,7 +84,7 @@ The root `package.json` provides workspace commands; pnpm manages the frontend a
 
 Exit: architecture decisions and the contract workflow are agreed; the existing prototype remains reproducible and CI runs the required checks.
 
-Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured; its first hosted run remains pending commit/push. Phase 1 is also complete; Phase 2 is next.
+Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured. Phases 1 and 2 are also complete; Phase 3 is next.
 
 ### Phase 1 — authenticated web and mobile prototype (implemented and locally verified)
 
@@ -99,7 +99,7 @@ Exit: both clients use the ASP.NET Core API for an authenticated non-money proto
 
 Evidence: [Phase 1 verification](PHASE_1.md), [API architecture](../api-server/README.md), [shared contract workflow](../packages/contracts/README.md), the reviewed EF migration, PostgreSQL integration tests, and web/mobile production exports. A physical-device and browser visual smoke test remains a manual follow-up; automated contract, build, API, and container checks passed locally.
 
-### Phase 2 — simulated payments and ledger
+### Phase 2 — simulated payments and ledger (implemented and locally verified)
 
 - Implement send and request flows with test balances, integer minor-unit amounts, and explicit currency.
 - Define pending, posted, failed, and reversed payment states and legal transitions.
@@ -109,6 +109,8 @@ Evidence: [Phase 1 verification](PHASE_1.md), [API architecture](../api-server/R
 - Add property, concurrency, retry, failure-injection, and integration tests for ledger invariants.
 
 Exit: retries, concurrent sends, failures, and reversals cannot create duplicate or unbalanced postings.
+
+Evidence: [Phase 2 verification](PHASE_2.md), the reviewed Phase 2 EF migrations, generated payment contracts, domain invariant tests, and real PostgreSQL integration tests for concurrency, idempotency, reversal, request acceptance, and transaction rollback.
 
 ### Phase 3 — simulated funding and operations
 
@@ -156,8 +158,8 @@ Exit: explicit production approval, stable cohort metrics, and reconciled financ
 3. Completed in Phase 1: add PostgreSQL schema and explicit migration tooling under `api-server`.
 4. Completed locally in Phase 0: automated health, readiness, and sandbox banking tests, including validation and concurrent one-time link-token behavior; checks and tests are wired into CI, awaiting the first hosted run.
 5. Completed in Phase 1: add authentication, profiles, fixture-backed activity, telemetry, and feature flags to web and mobile.
-6. Implement the payment state machine and transactional ledger posting.
-7. Add concurrency, idempotency, and failure-injection tests.
+6. Completed in Phase 2: implement the payment state machine and transactional ledger posting.
+7. Completed in Phase 2: add concurrency, idempotency, and failure-injection tests.
 8. Add simulated funding, reconciliation, and an outbox worker.
 9. Establish the load-test workload and baseline before adding Redis or Kafka.
 
