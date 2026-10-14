@@ -8,12 +8,41 @@ export const healthResponseSchema = z.object({
 });
 
 export const transferRequestSchema = z.object({
-  recipientId: z.uuid(),
+  recipientHandle: z.string().trim().min(3).max(20),
   amountMinor: z.number().int().positive().max(1_000_000),
   currency: z.literal('USD'),
   note: z.string().trim().max(280).default(''),
-  idempotencyKey: z.string().min(16).max(128),
 });
+
+export const createPaymentRequestSchema = z.object({
+  payerHandle: z.string().trim().min(3).max(20),
+  amountMinor: z.number().int().positive().max(1_000_000),
+  currency: z.literal('USD'),
+  note: z.string().trim().max(280).default(''),
+});
+
+export const walletSchema = z.object({
+  availableMinor: z.number().int().safe(), settledMinor: z.number().int().safe(),
+  currency: z.literal('USD'), isSimulated: z.literal(true),
+});
+
+export const paymentSchema = z.object({
+  id: z.uuid(), kind: z.enum(['send', 'request']), status: z.enum(['pending', 'posted', 'failed', 'reversed']),
+  senderUserId: z.uuid(), senderHandle: z.string(), recipientUserId: z.uuid(), recipientHandle: z.string(),
+  amountMinor: z.number().int().positive().safe(), currency: z.literal('USD'), note: z.string(),
+  createdAt: z.iso.datetime({ offset: true }), reversedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
+export const paymentListSchema = z.object({ items: z.array(paymentSchema) });
+
+export const paymentRequestSchema = z.object({
+  id: z.uuid(), status: z.enum(['pending', 'paid', 'declined', 'cancelled']),
+  requesterUserId: z.uuid(), requesterHandle: z.string(), payerUserId: z.uuid(), payerHandle: z.string(),
+  amountMinor: z.number().int().positive().safe(), currency: z.literal('USD'), note: z.string(),
+  paymentId: z.uuid().nullable(), createdAt: z.iso.datetime({ offset: true }), resolvedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
+export const paymentRequestListSchema = z.object({ items: z.array(paymentRequestSchema) });
 
 export const bankingInstitutionSchema = z.object({
   id: z.string().min(1),
@@ -63,6 +92,12 @@ export const externalBankAccountSchema = z.object({
 
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 export type TransferRequest = z.infer<typeof transferRequestSchema>;
+export type CreatePaymentRequest = z.infer<typeof createPaymentRequestSchema>;
+export type Wallet = z.infer<typeof walletSchema>;
+export type Payment = z.infer<typeof paymentSchema>;
+export type PaymentList = z.infer<typeof paymentListSchema>;
+export type PaymentRequest = z.infer<typeof paymentRequestSchema>;
+export type PaymentRequestList = z.infer<typeof paymentRequestListSchema>;
 export type BankingInstitution = z.infer<typeof bankingInstitutionSchema>;
 export type CreateBankLinkSessionRequest = z.infer<typeof createBankLinkSessionRequestSchema>;
 export type BankLinkSession = z.infer<typeof bankLinkSessionSchema>;

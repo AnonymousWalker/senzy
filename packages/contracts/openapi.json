@@ -190,6 +190,35 @@
         "additionalProperties": false,
         "type": "object"
       },
+      "CreatePaymentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "payerHandle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "payerHandle",
+          "amountMinor",
+          "currency",
+          "note"
+        ],
+        "type": "object"
+      },
       "CsrfResponse": {
         "additionalProperties": false,
         "properties": {
@@ -312,6 +341,178 @@
         ],
         "type": "object"
       },
+      "PaymentListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PaymentRequestListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentRequestResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PaymentRequestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "payerHandle": {
+            "type": "string"
+          },
+          "payerUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paymentId": {
+            "format": "uuid",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requesterHandle": {
+            "type": "string"
+          },
+          "requesterUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "resolvedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "requesterUserId",
+          "requesterHandle",
+          "payerUserId",
+          "payerHandle",
+          "amountMinor",
+          "currency",
+          "note",
+          "paymentId",
+          "createdAt",
+          "resolvedAt"
+        ],
+        "type": "object"
+      },
+      "PaymentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "recipientHandle": {
+            "type": "string"
+          },
+          "recipientUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "reversedAt": {
+            "format": "date-time",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "senderHandle": {
+            "type": "string"
+          },
+          "senderUserId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "senderUserId",
+          "senderHandle",
+          "recipientUserId",
+          "recipientHandle",
+          "amountMinor",
+          "currency",
+          "note",
+          "createdAt",
+          "reversedAt"
+        ],
+        "type": "object"
+      },
       "ProblemDetails": {
         "additionalProperties": false,
         "properties": {
@@ -425,6 +626,35 @@
         ],
         "type": "object"
       },
+      "SendPaymentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "recipientHandle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipientHandle",
+          "amountMinor",
+          "currency",
+          "note"
+        ],
+        "type": "object"
+      },
       "TelemetryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -483,6 +713,40 @@
         "required": [
           "displayName",
           "handle"
+        ],
+        "type": "object"
+      },
+      "WalletResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availableMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "isSimulated": {
+            "type": "boolean"
+          },
+          "settledMinor": {
+            "format": "int64",
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "availableMinor",
+          "settledMinor",
+          "currency",
+          "isSimulated"
         ],
         "type": "object"
       }
@@ -894,6 +1158,312 @@
         ]
       }
     },
+    "/v1/payment-requests": {
+      "get": {
+        "operationId": "ListPaymentRequests",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestListResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Payment requests"
+        ]
+      },
+      "post": {
+        "operationId": "CreatePaymentRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRequestResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Payment requests"
+        ]
+      }
+    },
+    "/v1/payment-requests/{requestId}/accept": {
+      "post": {
+        "operationId": "AcceptPaymentRequest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Payment requests"
+        ]
+      }
+    },
+    "/v1/payments": {
+      "get": {
+        "operationId": "ListPayments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "format": "int32",
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentListResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      },
+      "post": {
+        "operationId": "SendPayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/v1/payments/{paymentId}/reverse": {
+      "post": {
+        "operationId": "ReversePayment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
     "/v1/profile": {
       "get": {
         "operationId": "GetProfile",
@@ -1017,6 +1587,36 @@
           "Telemetry"
         ]
       }
+    },
+    "/v1/wallet": {
+      "get": {
+        "operationId": "GetWallet",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "Wallet"
+        ]
+      }
     }
   },
   "tags": [
@@ -1037,6 +1637,15 @@
     },
     {
       "name": "Profiles"
+    },
+    {
+      "name": "Wallet"
+    },
+    {
+      "name": "Payments"
+    },
+    {
+      "name": "Payment requests"
     },
     {
       "name": "Sandbox banking"

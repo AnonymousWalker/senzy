@@ -1,11 +1,16 @@
-import { profileSchema, configurationSchema, activitySchema, tokenSchema, csrfSchema, problemSchema } from './index.ts';
+import { profileSchema, configurationSchema, activitySchema, tokenSchema, csrfSchema, problemSchema,
+  walletSchema, paymentSchema, paymentListSchema, paymentRequestSchema, paymentRequestListSchema } from './index.ts';
 import type { components } from './generated/api.js';
+import type { TransferRequest, CreatePaymentRequest } from './index.ts';
 
 export type RegisterInput = components['schemas']['RegisterRequest'];
 export type LoginInput = components['schemas']['LoginRequest'];
 export type ProfileInput = components['schemas']['UpdateProfileRequest'];
 export type TelemetryEvent = 'signup_completed' | 'login_succeeded' | 'profile_saved' | 'activity_viewed' | 'client_error';
 export type Screen = 'auth' | 'activity' | 'profile' | 'app';
+export function createIdempotencyKey() {
+  return `senzy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -60,8 +65,8 @@ export function createApi(options: {
     })();
     try { return await refreshPending; } finally { refreshPending = null; }
   }
-  async function request(path: string, method = 'GET', body?: unknown, authenticated = true) {
-    const headers: Record<string, string> = {};
+  async function request(path: string, method = 'GET', body?: unknown, authenticated = true, extraHeaders: Record<string, string> = {}) {
+    const headers: Record<string, string> = { ...extraHeaders };
     if (options.mode === 'cookie' && method !== 'GET') {
       headers['X-CSRF-TOKEN'] = csrfSchema.parse(await value(await raw('/v1/auth/csrf'))).token;
     }
@@ -91,6 +96,21 @@ export function createApi(options: {
     async profile() { return profileSchema.parse(await request('/v1/profile/')); },
     async updateProfile(input: ProfileInput) { return profileSchema.parse(await request('/v1/profile/', 'PUT', input)); },
     async activity() { return activitySchema.parse(await request('/v1/activity')); },
+    async wallet() { return walletSchema.parse(await request('/v1/wallet/')); },
+    async payments() { return paymentListSchema.parse(await request('/v1/payments/')); },
+    async paymentRequests() { return paymentRequestListSchema.parse(await request('/v1/payment-requests/')); },
+    async sendPayment(input: TransferRequest, key = createIdempotencyKey()) {
+      return paymentSchema.parse(await request('/v1/payments/', 'POST', input, true, { 'Idempotency-Key': key }));
+    },
+    async createPaymentRequest(input: CreatePaymentRequest, key = createIdempotencyKey()) {
+      return paymentRequestSchema.parse(await request('/v1/payment-requests/', 'POST', input, true, { 'Idempotency-Key': key }));
+    },
+    async acceptPaymentRequest(id: string, key = createIdempotencyKey()) {
+      return paymentSchema.parse(await request(`/v1/payment-requests/${encodeURIComponent(id)}/accept`, 'POST', {}, true, { 'Idempotency-Key': key }));
+    },
+    async reversePayment(id: string, key = createIdempotencyKey()) {
+      return paymentSchema.parse(await request(`/v1/payments/${encodeURIComponent(id)}/reverse`, 'POST', {}, true, { 'Idempotency-Key': key }));
+    },
     report(event: TelemetryEvent, screen: Screen) {
       if (telemetryEnabled) void request('/v1/telemetry', 'POST', { event, screen }).catch(() => {});
     },
