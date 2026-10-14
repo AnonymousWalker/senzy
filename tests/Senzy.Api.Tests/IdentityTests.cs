@@ -152,7 +152,7 @@ internal sealed class DatabaseHost : IAsyncDisposable
     public required WebApplicationFactory<Program> Factory { get; init; }
     private string Connection { get; init; } = "";
     private string Schema { get; init; } = "";
-    public static async Task<DatabaseHost> Create()
+    public static async Task<DatabaseHost> Create(Action<IServiceCollection>? configure = null)
     {
         var connection = Environment.GetEnvironmentVariable("SENZY_TEST_POSTGRES") ?? throw new InvalidOperationException("SENZY_TEST_POSTGRES is required.");
         var schema = "senzy_test_" + Guid.NewGuid().ToString("N");
@@ -171,6 +171,7 @@ internal sealed class DatabaseHost : IAsyncDisposable
                 services.RemoveAll<DbContextOptions<SenzyDbContext>>();
                 services.RemoveAll<IDbContextOptionsConfiguration<SenzyDbContext>>();
                 services.AddDbContext<SenzyDbContext>(options => options.UseNpgsql(scoped));
+                configure?.Invoke(services);
             });
         });
         await using var scope = factory.Services.CreateAsyncScope();

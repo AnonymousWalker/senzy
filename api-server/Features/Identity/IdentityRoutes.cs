@@ -10,6 +10,7 @@ using Npgsql;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Configuration;
 using Senzy.Api.Features.Profiles;
+using Senzy.Api.Features.Ledger.Application;
 using Senzy.Api.Infrastructure.Persistence;
 
 namespace Senzy.Api.Features.Identity;
@@ -32,7 +33,7 @@ public static class IdentityRoutes
         }).AllowAnonymous().WithName("GetCsrfToken");
 
         group.MapPost("/register", async (RegisterRequest request, UserManager<ApplicationUser> users,
-            SenzyDbContext db, IConfiguration config, IHostEnvironment environment, CancellationToken ct) =>
+            SenzyDbContext db, SandboxWalletService wallets, IConfiguration config, IHostEnvironment environment, CancellationToken ct) =>
         {
             if (!ConfigurationRoutes.Read(config, environment).RegistrationEnabled)
                 return ApiErrors.Problem(403, "registration_disabled", "Registration is not available.");
@@ -49,6 +50,7 @@ public static class IdentityRoutes
                     return ApiErrors.Problem(400, "registration_failed", "Unable to register with those details. Check your password or try signing in.");
                 var profile = new Profile { UserId = user.Id, DisplayName = request.DisplayName.Trim(), Handle = ProfileRules.NormalizeHandle(request.Handle) };
                 db.Profiles.Add(profile);
+                wallets.CreateOpeningBalance(user.Id);
                 await db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
                 return Results.Created("/v1/profile", ProfileRules.Response(profile));

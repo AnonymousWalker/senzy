@@ -218,6 +218,273 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowNegative")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("BalanceMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId", "Purpose", "Currency")
+                        .IsUnique();
+
+                    b.ToTable("LedgerAccounts", t =>
+                        {
+                            t.HasCheckConstraint("CK_LedgerAccounts_Balance", "\"AllowNegative\" OR \"BalanceMinor\" >= 0");
+
+                            t.HasCheckConstraint("CK_LedgerAccounts_Currency", "\"Currency\" = 'USD'");
+
+                            t.HasCheckConstraint("CK_LedgerAccounts_Purpose", "\"Purpose\" IN ('Wallet', 'SandboxIssuance')");
+                        });
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<Guid>("LedgerAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LedgerTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerAccountId");
+
+                    b.HasIndex("LedgerTransactionId");
+
+                    b.ToTable("LedgerEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_LedgerEntries_Amount", "\"AmountMinor\" > 0");
+
+                            t.HasCheckConstraint("CK_LedgerEntries_Currency", "\"Currency\" = 'USD'");
+
+                            t.HasCheckConstraint("CK_LedgerEntries_Direction", "\"Direction\" IN ('Debit', 'Credit')");
+                        });
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReversesTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReversesTransactionId");
+
+                    b.HasIndex("PaymentId", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("LedgerTransactions", t =>
+                        {
+                            t.HasCheckConstraint("CK_LedgerTransactions_Currency", "\"Currency\" = 'USD'");
+
+                            t.HasCheckConstraint("CK_LedgerTransactions_Kind", "\"Kind\" IN ('SandboxOpeningBalance', 'Payment', 'Reversal')");
+                        });
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Payments.Domain.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(280)
+                        .HasColumnType("character varying(280)");
+
+                    b.Property<Guid?>("PaymentRequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PostedLedgerTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReversalLedgerTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ReversedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SenderUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("PostedLedgerTransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipientUserId");
+
+                    b.HasIndex("ReversalLedgerTransactionId");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.ToTable("Payments", t =>
+                        {
+                            t.HasCheckConstraint("CK_Payments_Amount", "\"AmountMinor\" > 0");
+
+                            t.HasCheckConstraint("CK_Payments_Currency", "\"Currency\" = 'USD'");
+
+                            t.HasCheckConstraint("CK_Payments_DistinctUsers", "\"SenderUserId\" <> \"RecipientUserId\"");
+
+                            t.HasCheckConstraint("CK_Payments_Kind", "\"Kind\" IN ('Send', 'Request')");
+
+                            t.HasCheckConstraint("CK_Payments_Status", "\"Status\" IN ('Pending', 'Posted', 'Failed', 'Reversed')");
+                        });
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Payments.Domain.PaymentRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(280)
+                        .HasColumnType("character varying(280)");
+
+                    b.Property<Guid>("PayerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RequesterUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayerUserId");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("RequesterUserId");
+
+                    b.ToTable("PaymentRequests", t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentRequests_Amount", "\"AmountMinor\" > 0");
+
+                            t.HasCheckConstraint("CK_PaymentRequests_Currency", "\"Currency\" = 'USD'");
+
+                            t.HasCheckConstraint("CK_PaymentRequests_DistinctUsers", "\"RequesterUserId\" <> \"PayerUserId\"");
+
+                            t.HasCheckConstraint("CK_PaymentRequests_Status", "\"Status\" IN ('Pending', 'Paid', 'Declined', 'Cancelled')");
+                        });
+                });
+
             modelBuilder.Entity("Senzy.Api.Features.Profiles.Profile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -242,6 +509,91 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Profiles");
+                });
+
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.IdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "Operation", "Key")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRecords");
+                });
+
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeliveredAt", "CreatedAt");
+
+                    b.ToTable("OutboxMessages", t =>
+                        {
+                            t.HasCheckConstraint("CK_OutboxMessages_Attempts", "\"AttemptCount\" >= 0");
+
+                            t.HasCheckConstraint("CK_OutboxMessages_Version", "\"Version\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -295,6 +647,89 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerAccount", b =>
+                {
+                    b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerEntry", b =>
+                {
+                    b.HasOne("Senzy.Api.Features.Ledger.Domain.LedgerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", null)
+                        .WithMany("Entries")
+                        .HasForeignKey("LedgerTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", b =>
+                {
+                    b.HasOne("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Payments.Domain.Payment", b =>
+                {
+                    b.HasOne("Senzy.Api.Features.Payments.Domain.PaymentRequest", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("PostedLedgerTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("ReversalLedgerTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Payments.Domain.PaymentRequest", b =>
+                {
+                    b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PayerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Senzy.Api.Features.Payments.Domain.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RequesterUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Senzy.Api.Features.Profiles.Profile", b =>
                 {
                     b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
@@ -302,6 +737,11 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("Senzy.Api.Features.Profiles.Profile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Senzy.Api.Features.Ledger.Domain.LedgerTransaction", b =>
+                {
+                    b.Navigation("Entries");
                 });
 #pragma warning restore 612, 618
         }

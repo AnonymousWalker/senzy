@@ -1,0 +1,39 @@
+namespace Senzy.Api.Features.Ledger.Domain;
+
+public sealed class LedgerPostingService
+{
+    public LedgerTransaction Post(
+        LedgerAccount debitAccount,
+        LedgerAccount creditAccount,
+        long amountMinor,
+        LedgerTransactionKind kind,
+        DateTimeOffset createdAt,
+        Guid? paymentId = null,
+        Guid? reversesTransactionId = null)
+    {
+        if (amountMinor <= 0) throw new ArgumentOutOfRangeException(nameof(amountMinor));
+        if (debitAccount.Id == creditAccount.Id) throw new InvalidOperationException("Ledger accounts must differ.");
+        if (!string.Equals(debitAccount.Currency, creditAccount.Currency, StringComparison.Ordinal) || debitAccount.Currency != "USD")
+            throw new InvalidOperationException("Ledger currencies must match.");
+        if (!debitAccount.AllowNegative && debitAccount.BalanceMinor < amountMinor) throw new InsufficientFundsException();
+        checked
+        {
+            debitAccount.BalanceMinor -= amountMinor;
+            creditAccount.BalanceMinor += amountMinor;
+        }
+        var transaction = new LedgerTransaction
+        {
+            PaymentId = paymentId,
+            ReversesTransactionId = reversesTransactionId,
+            Kind = kind,
+            Currency = debitAccount.Currency,
+            CreatedAt = createdAt
+        };
+        transaction.Entries =
+        [
+            new() { LedgerTransactionId = transaction.Id, LedgerAccountId = debitAccount.Id, Direction = LedgerEntryDirection.Debit, AmountMinor = amountMinor, Currency = transaction.Currency },
+            new() { LedgerTransactionId = transaction.Id, LedgerAccountId = creditAccount.Id, Direction = LedgerEntryDirection.Credit, AmountMinor = amountMinor, Currency = transaction.Currency }
+        ];
+        return transaction;
+    }
+}

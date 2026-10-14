@@ -1,0 +1,56 @@
+using Senzy.Api.Features.Ledger.Domain;
+using Senzy.Api.Features.Payments.Domain;
+using Xunit;
+
+namespace Senzy.Api.Tests;
+
+public sealed class LedgerDomainTests
+{
+    [Fact]
+    public void PostingPreservesValueAndAlwaysProducesBalancedEntries()
+    {
+        var random = new Random(42);
+        var service = new LedgerPostingService();
+        for (var index = 0; index < 1_000; index++)
+        {
+            var opening = random.NextInt64(1, 10_000_000);
+            var amount = random.NextInt64(1, opening + 1);
+            var debit = Wallet(opening);
+            var credit = Wallet(random.NextInt64(0, 10_000_000));
+            var total = debit.BalanceMinor + credit.BalanceMinor;
+            var transaction = service.Post(debit, credit, amount, LedgerTransactionKind.Payment, DateTimeOffset.UnixEpoch);
+            Assert.Equal(total, debit.BalanceMinor + credit.BalanceMinor);
+            Assert.Equal(2, transaction.Entries.Count);
+            Assert.Equal(transaction.Entries.Where(entry => entry.Direction == LedgerEntryDirection.Debit).Sum(entry => entry.AmountMinor),
+                transaction.Entries.Where(entry => entry.Direction == LedgerEntryDirection.Credit).Sum(entry => entry.AmountMinor));
+            Assert.All(transaction.Entries, entry => Assert.Equal("USD", entry.Currency));
+        }
+    }
+
+    [Fact]
+    public void InsufficientFundsDoesNotMutateAccounts()
+    {
+        var debit = Wallet(99);
+        var credit = Wallet(50);
+        Assert.Throws<InsufficientFundsException>(() => new LedgerPostingService().Post(
+            debit, credit, 100, LedgerTransactionKind.Payment, DateTimeOffset.UnixEpoch));
+        Assert.Equal(99, debit.BalanceMinor);
+        Assert.Equal(50, credit.BalanceMinor);
+    }
+
+    [Theory]
+    [InlineData(PaymentStatus.Pending, PaymentStatus.Posted, true)]
+    [InlineData(PaymentStatus.Pending, PaymentStatus.Failed, true)]
+    [InlineData(PaymentStatus.Posted, PaymentStatus.Reversed, true)]
+    [InlineData(PaymentStatus.Posted, PaymentStatus.Failed, false)]
+    [InlineData(PaymentStatus.Reversed, PaymentStatus.Posted, false)]
+    [InlineData(PaymentStatus.Failed, PaymentStatus.Posted, false)]
+    public void PaymentStateMachineAllowsOnlyLegalTransitions(PaymentStatus from, PaymentStatus to, bool expected) =>
+        Assert.Equal(expected, PaymentStateMachine.CanTransition(from, to));
+
+    private static LedgerAccount Wallet(long balance) => new()
+    {
+        Id = Guid.NewGuid(), OwnerUserId = Guid.NewGuid(), Purpose = LedgerAccountPurpose.Wallet,
+        Currency = "USD", BalanceMinor = balance, AllowNegative = false
+    };
+}

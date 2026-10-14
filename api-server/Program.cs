@@ -18,6 +18,10 @@ using Senzy.Api.Features.Profiles;
 using Senzy.Api.Features.Activity;
 using Senzy.Api.Features.Configuration;
 using Senzy.Api.Features.Telemetry;
+using Senzy.Api.Features.Ledger.Application;
+using Senzy.Api.Features.Ledger.Domain;
+using Senzy.Api.Features.Payments;
+using Senzy.Api.Features.Payments.Application;
 using Senzy.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -73,6 +77,10 @@ var protection = builder.Services.AddDataProtection().SetApplicationName("Senzy"
 if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
     protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
 builder.Services.AddScoped<ISessionValidator, SessionValidator>();
+builder.Services.AddScoped<LedgerPostingService>();
+builder.Services.AddScoped<SandboxWalletService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<IPaymentFailureInjector, NoopPaymentFailureInjector>();
 builder.Services.AddAuthorization();
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173", "http://localhost:4001", "http://localhost:8081"];
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
@@ -81,6 +89,8 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("RateLimits:AuthPermitLimit", 30), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.AddPolicy("telemetry", context => RateLimitPartition.GetFixedWindowLimiter(context.User.Identity?.Name ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("payments", context => RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.OnRejected = async (context, _) => await ApiErrors.Problem(429, "rate_limited", "Too many requests. Try again shortly.").ExecuteAsync(context.HttpContext);
 });
@@ -153,6 +163,7 @@ app.MapIdentityRoutes();
 app.MapProfileRoutes();
 app.MapActivityRoutes();
 app.MapTelemetryRoutes();
+app.MapPaymentRoutes();
 
 if (app.Environment.IsDevelopment())
 {
