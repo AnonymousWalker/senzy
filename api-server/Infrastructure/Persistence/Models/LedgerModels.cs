@@ -1,4 +1,4 @@
-namespace Senzy.Api.Common;
+namespace Senzy.Api.Infrastructure.Persistence.Models;
 
 public enum LedgerAccountPurpose
 {

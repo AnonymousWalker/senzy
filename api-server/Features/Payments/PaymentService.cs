@@ -6,6 +6,7 @@ using Senzy.Api.Common;
 using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Profiles;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Api.Infrastructure.Persistence.Models;
 
 namespace Senzy.Api.Features.Payments;
 

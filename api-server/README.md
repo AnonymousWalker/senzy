@@ -102,13 +102,14 @@ api-server/
       TelemetryRoutes.cs
   Common/
     ApiErrors.cs
-    LedgerModels.cs
     PaymentContracts.cs
-    PaymentModels.cs
   Infrastructure/
     Persistence/
       SenzyDbContext.cs
       OperationalModels.cs
+      Models/
+        LedgerModels.cs
+        PaymentEntities.cs
       Migrations/
     Banking/
       StubBankingProvider.cs
@@ -120,7 +121,7 @@ tools/
 
 Group code by business capability, then by use case where useful. Small features can start with an endpoint file and a service; they do not need every folder shown above. Use feature-specific namespaces for repeated filenames such as `Handler.cs`.
 
-Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` contains cross-feature model types and transport contracts; keep feature behavior and orchestration in the owning feature directory rather than turning `Common/` into a service dump.
+Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` contains shared transport contracts and cross-cutting errors; EF-backed records belong under `Infrastructure/Persistence/Models`, while feature behavior and orchestration stays in the owning feature directory.
 
 The existing `Banking/` directory stays in place until its next feature change. At that point, move its HTTP contract and provider interface to `Features/Banking/` and the stub implementation to `Infrastructure/Banking/`. Avoid maintaining both old and new implementations.
 

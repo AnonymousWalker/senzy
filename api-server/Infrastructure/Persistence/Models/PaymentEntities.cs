@@ -1,4 +1,4 @@
-namespace Senzy.Api.Common;
+namespace Senzy.Api.Infrastructure.Persistence.Models;
 
 public enum PaymentKind
 {
@@ -51,14 +51,4 @@ public sealed class PaymentRequest
     public string Note { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? ResolvedAt { get; set; }
-}
-
-public static class PaymentStateMachine
-{
-    public static bool CanTransition(PaymentStatus from, PaymentStatus to) => (from, to) switch
-    {
-        (PaymentStatus.Pending, PaymentStatus.Posted or PaymentStatus.Failed) => true,
-        (PaymentStatus.Posted, PaymentStatus.Reversed) => true,
-        _ => false
-    };
 }

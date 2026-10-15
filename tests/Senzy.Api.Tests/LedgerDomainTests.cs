@@ -1,5 +1,6 @@
-using Senzy.Api.Common;
 using Senzy.Api.Features.Ledger;
+using Senzy.Api.Features.Payments;
+using Senzy.Api.Infrastructure.Persistence.Models;
 using Xunit;
 
 namespace Senzy.Api.Tests;

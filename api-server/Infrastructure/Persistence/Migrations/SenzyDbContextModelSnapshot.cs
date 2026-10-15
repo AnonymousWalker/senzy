@@ -218,7 +218,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerAccount", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -262,7 +262,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerEntry", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -304,7 +304,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerTransaction", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -345,7 +345,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.Payment", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.Payment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -424,7 +424,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.PaymentRequest", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.PaymentRequest", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -647,7 +647,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerAccount", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerAccount", b =>
                 {
                     b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
                         .WithMany()
@@ -656,37 +656,37 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerEntry", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerEntry", b =>
                 {
-                    b.HasOne("Senzy.Api.Common.LedgerAccount", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerAccount", null)
                         .WithMany()
                         .HasForeignKey("LedgerAccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Senzy.Api.Common.LedgerTransaction", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", null)
                         .WithMany("Entries")
                         .HasForeignKey("LedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerTransaction", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", b =>
                 {
-                    b.HasOne("Senzy.Api.Common.LedgerTransaction", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", null)
                         .WithMany()
                         .HasForeignKey("ReversesTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.Payment", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.Payment", b =>
                 {
-                    b.HasOne("Senzy.Api.Common.PaymentRequest", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.PaymentRequest", null)
                         .WithMany()
                         .HasForeignKey("PaymentRequestId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Senzy.Api.Common.LedgerTransaction", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", null)
                         .WithMany()
                         .HasForeignKey("PostedLedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -698,7 +698,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Senzy.Api.Common.LedgerTransaction", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", null)
                         .WithMany()
                         .HasForeignKey("ReversalLedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -710,7 +710,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.PaymentRequest", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.PaymentRequest", b =>
                 {
                     b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
                         .WithMany()
@@ -718,7 +718,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Senzy.Api.Common.Payment", null)
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.Payment", null)
                         .WithMany()
                         .HasForeignKey("PaymentId")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -739,7 +739,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Senzy.Api.Common.LedgerTransaction", b =>
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", b =>
                 {
                     b.Navigation("Entries");
                 });

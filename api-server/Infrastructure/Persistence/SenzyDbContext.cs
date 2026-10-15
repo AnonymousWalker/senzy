@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Features.Identity;
-using Senzy.Api.Common;
+using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Api.Features.Profiles;
 
 namespace Senzy.Api.Infrastructure.Persistence;

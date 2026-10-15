@@ -1,4 +1,4 @@
-using Senzy.Api.Common;
+using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Api.Infrastructure.Persistence;
 
 namespace Senzy.Api.Features.Ledger;
