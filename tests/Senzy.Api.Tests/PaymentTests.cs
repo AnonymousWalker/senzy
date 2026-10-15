@@ -5,9 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Senzy.Api.Features.Ledger.Domain;
-using Senzy.Api.Features.Payments.Application;
-using Senzy.Api.Features.Payments.Domain;
+using Senzy.Api.Common;
 using Senzy.Api.Infrastructure.Persistence;
 using Xunit;
 
