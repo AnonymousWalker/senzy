@@ -1,4 +1,4 @@
-namespace Senzy.Api.Features.Ledger.Domain;
+namespace Senzy.Api.Common;
 
 public enum LedgerAccountPurpose
 {

@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Senzy.Api.Common;
-using Senzy.Api.Features.Payments.Application;
 using Senzy.Api.Features.Profiles;
 
 namespace Senzy.Api.Features.Payments;

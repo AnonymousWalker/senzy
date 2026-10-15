@@ -1,4 +1,6 @@
-namespace Senzy.Api.Features.Ledger.Domain;
+using Senzy.Api.Common;
+
+namespace Senzy.Api.Features.Ledger;
 
 public sealed class LedgerPostingService
 {

@@ -1,4 +1,4 @@
-namespace Senzy.Api.Features.Payments.Domain;
+namespace Senzy.Api.Common;
 
 public enum PaymentKind
 {

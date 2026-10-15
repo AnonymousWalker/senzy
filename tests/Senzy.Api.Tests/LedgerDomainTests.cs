@@ -1,5 +1,5 @@
-using Senzy.Api.Features.Ledger.Domain;
-using Senzy.Api.Features.Payments.Domain;
+using Senzy.Api.Common;
+using Senzy.Api.Features.Ledger;
 using Xunit;
 
 namespace Senzy.Api.Tests;

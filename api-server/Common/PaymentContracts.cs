@@ -1,6 +1,6 @@
-using Senzy.Api.Features.Payments.Domain;
+using Senzy.Api.Common;
 
-namespace Senzy.Api.Features.Payments.Application;
+namespace Senzy.Api.Common;
 
 public sealed record SendPaymentRequest(string RecipientHandle, long AmountMinor, string Currency, string Note);
 public sealed record CreatePaymentRequest(string PayerHandle, long AmountMinor, string Currency, string Note);

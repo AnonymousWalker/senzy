@@ -2,12 +2,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Senzy.Api.Features.Ledger.Domain;
-using Senzy.Api.Features.Payments.Domain;
+using Senzy.Api.Common;
+using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Profiles;
 using Senzy.Api.Infrastructure.Persistence;
 
-namespace Senzy.Api.Features.Payments.Application;
+namespace Senzy.Api.Features.Payments;
 
 public sealed class PaymentService(
     SenzyDbContext db,

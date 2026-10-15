@@ -1,7 +1,7 @@
-using Senzy.Api.Features.Ledger.Domain;
+using Senzy.Api.Common;
 using Senzy.Api.Infrastructure.Persistence;
 
-namespace Senzy.Api.Features.Ledger.Application;
+namespace Senzy.Api.Features.Ledger;
 
 public sealed class SandboxWalletService(SenzyDbContext db, LedgerPostingService ledger, TimeProvider clock, IConfiguration configuration)
 {

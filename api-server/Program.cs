@@ -18,10 +18,8 @@ using Senzy.Api.Features.Profiles;
 using Senzy.Api.Features.Activity;
 using Senzy.Api.Features.Configuration;
 using Senzy.Api.Features.Telemetry;
-using Senzy.Api.Features.Ledger.Application;
-using Senzy.Api.Features.Ledger.Domain;
+using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Payments;
-using Senzy.Api.Features.Payments.Application;
 using Senzy.Api.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);

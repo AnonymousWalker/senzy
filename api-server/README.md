@@ -88,25 +88,23 @@ api-server/
     Banking/
       BankingEndpoints.cs
       IBankingProvider.cs
-    Payments/
-      Application/
-        PaymentContracts.cs
-        PaymentService.cs
-      Domain/
-        PaymentModels.cs
-      PaymentRoutes.cs
     Ledger/
-      Application/
-        SandboxWalletService.cs
-      Domain/
-        LedgerModels.cs
-        LedgerPostingService.cs
+      LedgerPostingService.cs
+      SandboxWalletService.cs
+    Payments/
+      PaymentService.cs
+      PaymentRoutes.cs
     Activity/
       ActivityRoutes.cs
     Configuration/
       ConfigurationRoutes.cs
     Telemetry/
       TelemetryRoutes.cs
+  Common/
+    ApiErrors.cs
+    LedgerModels.cs
+    PaymentContracts.cs
+    PaymentModels.cs
   Infrastructure/
     Persistence/
       SenzyDbContext.cs
@@ -114,8 +112,6 @@ api-server/
       Migrations/
     Banking/
       StubBankingProvider.cs
-  Common/
-    ApiErrors.cs
 tests/
   Senzy.Api.Tests/                # HTTP, domain, and PostgreSQL integration tests
 tools/
@@ -124,7 +120,7 @@ tools/
 
 Group code by business capability, then by use case where useful. Small features can start with an endpoint file and a service; they do not need every folder shown above. Use feature-specific namespaces for repeated filenames such as `Handler.cs`.
 
-Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` is reserved for genuinely shared concerns, not miscellaneous business logic.
+Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` contains cross-feature model types and transport contracts; keep feature behavior and orchestration in the owning feature directory rather than turning `Common/` into a service dump.
 
 The existing `Banking/` directory stays in place until its next feature change. At that point, move its HTTP contract and provider interface to `Features/Banking/` and the stub implementation to `Infrastructure/Banking/`. Avoid maintaining both old and new implementations.
 
@@ -247,7 +243,7 @@ External provider calls must not be treated as atomic with PostgreSQL. Future ex
 
 ### Concrete send-payment flow — implemented in Phase 2
 
-`Features/Payments/Application/PaymentService.cs` coordinates the following operation. PostgreSQL concurrency, retry, and rollback tests validate the locking strategy.
+`Features/Payments/PaymentService.cs` coordinates the following operation. PostgreSQL concurrency, retry, and rollback tests validate the locking strategy.
 
 1. Authenticate the sender, validate amount/currency, resolve the recipient, and compute the canonical request fingerprint.
 2. Begin the PostgreSQL transaction and claim the unique actor/operation/idempotency key. A duplicate waits for the competing transaction's outcome, then replays a matching committed result or rejects a changed fingerprint. Do not continue an aborted PostgreSQL transaction after a uniqueness error; use conflict-safe insertion or restart the transaction.
