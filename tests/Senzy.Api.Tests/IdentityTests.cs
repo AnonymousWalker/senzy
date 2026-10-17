@@ -116,6 +116,23 @@ public sealed class IdentityTests
     }
 
     [PostgresFact]
+    public async Task RegistrationAcceptsEightCharacterPasswordsAndRejectsShorterPasswords()
+    {
+        await using var host = await DatabaseHost.Create();
+        using var client = host.Factory.CreateClient();
+        var accepted = await client.PostAsJsonAsync("/v1/auth/register", new
+        {
+            email = "eight@example.test", password = "eight123", displayName = "Eight", handle = "eight_user"
+        });
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+        var rejected = await client.PostAsJsonAsync("/v1/auth/register", new
+        {
+            email = "short@example.test", password = "short7", displayName = "Short", handle = "short_user"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+    }
+
+    [PostgresFact]
     public async Task ConcurrentRegistrationsEnforceUniqueHandlesAndLockoutBlocksWrongPasswords()
     {
         await using var host = await DatabaseHost.Create();

@@ -43,8 +43,8 @@ export function AuthView({ busy, config, onSubmit }: AuthViewProps) {
           <small id="handle-help">3–20 letters, numbers or underscores. Start with a letter.</small>
         </>}
         <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254} /></label>
-        <label>Password<input name="password" type="password" autoComplete={signUp ? 'new-password' : 'current-password'} required minLength={signUp ? 12 : undefined} maxLength={128} /></label>
-        {signUp && <small>At least 12 characters.</small>}
+        <label>Password<input name="password" type="password" autoComplete={signUp ? 'new-password' : 'current-password'} required minLength={signUp ? 8 : undefined} maxLength={128} /></label>
+        {signUp && <small>At least 8 characters.</small>}
         <button disabled={busy} type="submit">{busy ? 'Please wait…' : signUp ? 'Create account' : 'Sign in'}</button>
       </form>
       {config.registrationEnabled && <button className="quiet switch-auth" disabled={busy} onClick={() => setSignUp(value => !value)}>{signUp ? 'Already a member? Sign in' : 'New here? Create an account'}</button>}

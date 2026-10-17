@@ -32,7 +32,7 @@ export default function Auth() {
     {signUp && <><Field label="Display name" value={displayName} onChangeText={setDisplayName} maxLength={80} autoComplete="name" /><Field label="Payment handle" value={handle} onChangeText={setHandle} maxLength={20} autoCapitalize="none" autoCorrect={false} /><Text style={styles.text}>3–20 letters, numbers or underscores. Start with a letter.</Text></>}
     <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" maxLength={254} />
     <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={signUp ? 'new-password' : 'current-password'} maxLength={128} />
-    {signUp && <Text style={styles.text}>Use at least 12 characters.</Text>}
+    {signUp && <Text style={styles.text}>Use at least 8 characters.</Text>}
     <Action title={busy ? 'Please wait…' : signUp ? 'Create account' : 'Sign in'} disabled={busy || !email || !password || !session.config} onPress={() => void submit()} />
     {session.config?.registrationEnabled && <Action title={signUp ? 'Already a member? Sign in' : 'Create an account'} disabled={busy} onPress={() => { setSignUp(!signUp); setError(''); }} />}
     {session.error && <Action title="Retry connection" onPress={() => void session.reload()} />}

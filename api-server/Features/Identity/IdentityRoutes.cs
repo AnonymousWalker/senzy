@@ -39,8 +39,8 @@ public static class IdentityRoutes
                 return ApiErrors.Problem(403, "registration_disabled", "Registration is not available.");
             if (!ProfileRules.Valid(request.DisplayName, request.Handle) || string.IsNullOrWhiteSpace(request.Email) ||
                 request.Email.Length > 254 || !new EmailAddressAttribute().IsValid(request.Email.Trim()) ||
-                string.IsNullOrEmpty(request.Password) || request.Password.Length is < 12 or > 128)
-                return ApiErrors.Problem(400, "invalid_registration", "Use a valid email, a 12–128 character password, a name up to 80 characters, and a 3–20 character handle starting with a letter.");
+                string.IsNullOrEmpty(request.Password) || request.Password.Length is < 8 or > 128)
+                return ApiErrors.Problem(400, "invalid_registration", "Use a valid email, an 8–128 character password, a name up to 80 characters, and a 3–20 character handle starting with a letter.");
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var user = new ApplicationUser { UserName = request.Email.Trim(), Email = request.Email.Trim() };
             try
