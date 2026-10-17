@@ -25,6 +25,10 @@ function dollars(amountMinor: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amountMinor / 100)
 }
 
+function initials(name: string) {
+  return name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
+}
+
 export function ActivityView({ busy, payments, profile, requests, wallet, onAcceptRequest, onRequest, onReverse, onSend }: ActivityViewProps) {
   const [formError, setFormError] = useState('')
 
@@ -46,27 +50,26 @@ export function ActivityView({ busy, payments, profile, requests, wallet, onAcce
 
   const incoming = requests?.filter(request => request.payerUserId === profile.userId && request.status === 'pending') ?? []
 
-  return <section>
-    <p className="eyebrow">SIMULATED PAYMENTS</p>
-    <h1>Hello, {profile.displayName}.</h1>
-    <p className="handle">${profile.handle}</p>
-    <div className="balance"><span>Simulated available balance</span><strong>{wallet ? dollars(wallet.availableMinor) : '—'}</strong><small>Test funds only · no real money can move</small></div>
+  return <section className="payment-page">
+    <p className="eyebrow">YOUR MONEY, YOUR PEOPLE</p>
+    <div className="profile-head"><span className="profile-avatar">{initials(profile.displayName)}</span><div><h1>Hello, {profile.displayName}.</h1><p className="handle">@{profile.handle}</p></div></div>
+    <div className="balance payment-hero"><div className="balance-top"><span>Available balance</span><span className="sandbox-label">Simulated</span></div><strong>{wallet ? dollars(wallet.availableMinor) : '—'}</strong><small>Test funds only · no real money can move</small></div>
 
     {formError && <p className="alert" role="alert">{formError}</p>}
     <div className="payment-actions">
       <form className="action-card" onSubmit={event => submit(event, 'send')}>
-        <h2>Send</h2>
+        <div className="action-heading"><span className="action-mark">$</span><div><h2>Pay</h2><small>Send money to a friend</small></div></div>
         <label>Recipient handle<input name="handle" required minLength={3} maxLength={20} placeholder="friend_handle" autoCapitalize="none" /></label>
         <label>Amount (USD)<input name="amount" required inputMode="decimal" placeholder="25.00" /></label>
         <label>Note<input name="note" maxLength={280} placeholder="What’s it for?" /></label>
-        <button disabled={busy || !wallet}>Send simulated payment</button>
+        <button disabled={busy || !wallet}>Pay someone</button>
       </form>
       <form className="action-card" onSubmit={event => submit(event, 'request')}>
-        <h2>Request</h2>
+        <div className="action-heading"><span className="action-mark request-mark">↙</span><div><h2>Request</h2><small>Ask a friend for money</small></div></div>
         <label>Payer handle<input name="handle" required minLength={3} maxLength={20} placeholder="friend_handle" autoCapitalize="none" /></label>
         <label>Amount (USD)<input name="amount" required inputMode="decimal" placeholder="25.00" /></label>
         <label>Note<input name="note" maxLength={280} placeholder="What’s it for?" /></label>
-        <button disabled={busy}>Create request</button>
+        <button disabled={busy}>Request money</button>
       </form>
     </div>
 
@@ -82,7 +85,7 @@ export function ActivityView({ busy, payments, profile, requests, wallet, onAcce
         : <ul className="activity-list">{payments.map(payment => {
           const received = payment.recipientUserId === profile.userId
           return <li key={payment.id}>
-            <span className="activity-icon" aria-hidden="true">{received ? '↙' : '↗'}</span>
+            <span className="activity-icon" aria-hidden="true">{initials(received ? payment.senderHandle : payment.recipientHandle)}</span>
             <div><h3>{received ? `From $${payment.senderHandle}` : `To $${payment.recipientHandle}`}</h3><p>{payment.note || 'No note'} · {payment.status}</p><time dateTime={payment.createdAt}>{new Date(payment.createdAt).toLocaleDateString()}</time></div>
             <strong className={received ? 'received' : ''}>{received ? '+' : '−'}{dollars(payment.amountMinor)}</strong>
             {!received && payment.status === 'posted' && <button className="quiet compact" disabled={busy} onClick={() => onReverse(payment.id)}>Reverse</button>}

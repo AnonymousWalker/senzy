@@ -18,6 +18,10 @@ function dollars(amountMinor: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amountMinor / 100);
 }
 
+function initials(name: string) {
+  return name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+}
+
 export default function Activity() {
   const { profile, setProfile } = useSession();
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -97,8 +101,7 @@ export default function Activity() {
   return <Screen>
     <Text style={styles.brand}>senzy</Text>
     <Text style={styles.badge}>Sandbox · no real money</Text>
-    <Text style={styles.title}>Hello, {profile?.displayName}.</Text>
-    <Text style={styles.text}>${profile?.handle}</Text>
+    <View style={styles.profileHead}><Text style={styles.profileAvatar}>{initials(profile?.displayName ?? '')}</Text><View><Text style={styles.title}>Hello, {profile?.displayName}.</Text><Text style={styles.text}>@{profile?.handle}</Text></View></View>
     <View style={styles.balance}>
       <Text style={{ color: '#d4e5c8' }}>Simulated available balance</Text>
       <Text style={styles.amount}>{wallet ? dollars(wallet.availableMinor) : '—'}</Text>
