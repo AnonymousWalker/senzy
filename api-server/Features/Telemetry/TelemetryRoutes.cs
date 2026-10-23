@@ -7,7 +7,7 @@ public sealed record TelemetryRequest(string Event, string Screen);
 public static class TelemetryRoutes
 {
     private static readonly string[] Events = ["signup_completed", "login_succeeded", "profile_saved", "activity_viewed", "client_error"];
-    private static readonly string[] Screens = ["auth", "activity", "profile", "app"];
+    private static readonly string[] Screens = ["auth", "activity", "funding", "profile", "app"];
     public static void MapTelemetryRoutes(this WebApplication app) =>
         app.MapPost("/v1/telemetry", (TelemetryRequest request, IConfiguration config, ILoggerFactory logs) =>
         {

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Profiles;
+using Senzy.Api.Features.Operations;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
@@ -14,7 +15,8 @@ public sealed class PaymentService(
     SenzyDbContext db,
     LedgerPostingService ledger,
     TimeProvider clock,
-    IPaymentFailureInjector failureInjector)
+    IPaymentFailureInjector failureInjector,
+    OutboundPolicy outboundPolicy)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const long MaximumAmountMinor = 1_000_000;
@@ -85,6 +87,7 @@ public sealed class PaymentService(
         var accounts = await LockWalletsAsync(payment.SenderUserId, payment.RecipientUserId, ct);
         var senderWallet = accounts.Single(account => account.OwnerUserId == payment.SenderUserId);
         var recipientWallet = accounts.Single(account => account.OwnerUserId == payment.RecipientUserId);
+        await outboundPolicy.EnsureAllowedAsync(payment.RecipientUserId, payment.AmountMinor, ct);
         LedgerTransaction reversal;
         try
         {
@@ -185,6 +188,7 @@ public sealed class PaymentService(
         var accounts = await LockWalletsAsync(sender.UserId, recipient.UserId, ct);
         var senderWallet = accounts.Single(account => account.OwnerUserId == sender.UserId);
         var recipientWallet = accounts.Single(account => account.OwnerUserId == recipient.UserId);
+        await outboundPolicy.EnsureAllowedAsync(sender.UserId, amountMinor, ct);
         var now = clock.GetUtcNow();
         var payment = new Payment
         {

@@ -1,4 +1,4 @@
-namespace Senzy.Api.Banking;
+namespace Senzy.Api.Features.Banking;
 
 public record BankingInstitution(string Id, string Name, string? LogoUrl);
 public record BankLinkSession(string Provider, bool Sandbox, string LinkToken, DateTimeOffset ExpiresAt);
@@ -13,6 +13,7 @@ public interface IBankingProvider
     ExternalBankAccount ConnectAccount(Guid userId, string linkToken, string institutionId,
         string displayName, string accountKind);
     IReadOnlyList<ExternalBankAccount> ListAccounts(Guid userId);
+    ExternalBankAccount? FindAccount(Guid userId, Guid accountId);
 }
 
 public sealed class BankingProviderException(string message) : Exception(message);

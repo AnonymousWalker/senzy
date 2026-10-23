@@ -11,7 +11,8 @@ public sealed class LedgerPostingService
         LedgerTransactionKind kind,
         DateTimeOffset createdAt,
         Guid? paymentId = null,
-        Guid? reversesTransactionId = null)
+        Guid? reversesTransactionId = null,
+        Guid? fundingTransferId = null)
     {
         if (amountMinor <= 0) throw new ArgumentOutOfRangeException(nameof(amountMinor));
         if (debitAccount.Id == creditAccount.Id) throw new InvalidOperationException("Ledger accounts must differ.");
@@ -26,6 +27,7 @@ public sealed class LedgerPostingService
         var transaction = new LedgerTransaction
         {
             PaymentId = paymentId,
+            FundingTransferId = fundingTransferId,
             ReversesTransactionId = reversesTransactionId,
             Kind = kind,
             Currency = debitAccount.Currency,

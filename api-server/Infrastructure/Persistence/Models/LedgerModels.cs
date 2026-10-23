@@ -16,7 +16,9 @@ public enum LedgerTransactionKind
 {
     SandboxOpeningBalance,
     Payment,
-    Reversal
+    Reversal,
+    FundingIn,
+    FundingOut
 }
 
 public sealed class LedgerAccount
@@ -34,6 +36,7 @@ public sealed class LedgerTransaction
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? PaymentId { get; set; }
+    public Guid? FundingTransferId { get; set; }
     public Guid? ReversesTransactionId { get; set; }
     public LedgerTransactionKind Kind { get; set; }
     public string Currency { get; set; } = "USD";

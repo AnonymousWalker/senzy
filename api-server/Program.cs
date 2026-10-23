@@ -1,5 +1,5 @@
 using Npgsql;
-using Senzy.Api.Banking;
+using Senzy.Api.Features.Banking;
 using Senzy.Api.Features.Health;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
@@ -20,7 +20,12 @@ using Senzy.Api.Features.Configuration;
 using Senzy.Api.Features.Telemetry;
 using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Payments;
+using Senzy.Api.Features.Funding;
+using Senzy.Api.Features.Notifications;
+using Senzy.Api.Features.Operations;
+using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Api.Infrastructure.Banking;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
@@ -78,7 +83,14 @@ builder.Services.AddScoped<ISessionValidator, SessionValidator>();
 builder.Services.AddScoped<LedgerPostingService>();
 builder.Services.AddScoped<SandboxWalletService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<FundingService>();
+builder.Services.AddScoped<OutboundPolicy>();
+builder.Services.AddScoped<ReconciliationService>();
+builder.Services.AddScoped<OutboxDispatcher>();
 builder.Services.AddScoped<IPaymentFailureInjector, NoopPaymentFailureInjector>();
+builder.Services.AddScoped<IFundingFailureInjector, NoopFundingFailureInjector>();
+builder.Services.AddHostedService<OutboxWorker>();
+builder.Services.AddHostedService<ReconciliationWorker>();
 builder.Services.AddAuthorization();
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173", "http://localhost:4001", "http://localhost:8081"];
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
@@ -162,11 +174,14 @@ app.MapProfileRoutes();
 app.MapActivityRoutes();
 app.MapTelemetryRoutes();
 app.MapPaymentRoutes();
+app.MapNotificationRoutes();
+app.MapOperationsRoutes();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapBankingRoutes();
+    app.MapFundingRoutes();
 }
 
 app.Run();

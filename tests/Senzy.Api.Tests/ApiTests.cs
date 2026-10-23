@@ -74,6 +74,7 @@ public sealed class ApiTests
     [Theory]
     [InlineData("/v1/banking/institutions")]
     [InlineData("/v1/banking/accounts/11111111-1111-4111-8111-111111111111")]
+    [InlineData("/v1/funding-transfers/")]
     [InlineData("/openapi/v1.json")]
     public async Task SandboxAndOpenApiAreAbsentInProduction(string path)
     {

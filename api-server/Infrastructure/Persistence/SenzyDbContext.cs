@@ -16,8 +16,13 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentRequest> PaymentRequests => Set<PaymentRequest>();
+    public DbSet<FundingTransfer> FundingTransfers => Set<FundingTransfer>();
+    public DbSet<SandboxProviderTransfer> SandboxProviderTransfers => Set<SandboxProviderTransfer>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<WalletControl> WalletControls => Set<WalletControl>();
+    public DbSet<ReconciliationRun> ReconciliationRuns => Set<ReconciliationRun>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,9 +56,10 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
             entity.ToTable(table =>
             {
                 table.HasCheckConstraint("CK_LedgerTransactions_Currency", "\"Currency\" = 'USD'");
-                table.HasCheckConstraint("CK_LedgerTransactions_Kind", "\"Kind\" IN ('SandboxOpeningBalance', 'Payment', 'Reversal')");
+                table.HasCheckConstraint("CK_LedgerTransactions_Kind", "\"Kind\" IN ('SandboxOpeningBalance', 'Payment', 'Reversal', 'FundingIn', 'FundingOut')");
             });
             entity.HasIndex(transaction => new { transaction.PaymentId, transaction.Kind }).IsUnique();
+            entity.HasIndex(transaction => transaction.FundingTransferId).IsUnique();
             entity.HasMany(transaction => transaction.Entries).WithOne().HasForeignKey(entry => entry.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<LedgerTransaction>().WithMany().HasForeignKey(transaction => transaction.ReversesTransactionId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -125,12 +131,69 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
         {
             entity.Property(message => message.Type).HasMaxLength(80);
             entity.Property(message => message.PayloadJson).HasColumnType("jsonb");
+            entity.Property(message => message.LastError).HasMaxLength(500);
             entity.ToTable(table =>
             {
                 table.HasCheckConstraint("CK_OutboxMessages_Version", "\"Version\" > 0");
                 table.HasCheckConstraint("CK_OutboxMessages_Attempts", "\"AttemptCount\" >= 0");
             });
-            entity.HasIndex(message => new { message.DeliveredAt, message.CreatedAt });
+            entity.HasIndex(message => new { message.DeliveredAt, message.NextAttemptAt, message.CreatedAt });
+        });
+        builder.Entity<FundingTransfer>(entity =>
+        {
+            entity.Property(transfer => transfer.Provider).HasMaxLength(40);
+            entity.Property(transfer => transfer.ProviderTransferId).HasMaxLength(100);
+            entity.Property(transfer => transfer.Direction).HasConversion<string>().HasMaxLength(16);
+            entity.Property(transfer => transfer.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(transfer => transfer.Currency).HasMaxLength(3).IsFixedLength();
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_FundingTransfers_Amount", "\"AmountMinor\" > 0");
+                table.HasCheckConstraint("CK_FundingTransfers_Currency", "\"Currency\" = 'USD'");
+                table.HasCheckConstraint("CK_FundingTransfers_Direction", "\"Direction\" IN ('CashIn', 'CashOut')");
+                table.HasCheckConstraint("CK_FundingTransfers_Status", "\"Status\" = 'Posted'");
+            });
+            entity.HasIndex(transfer => transfer.ProviderTransferId).IsUnique();
+            entity.HasIndex(transfer => transfer.LedgerTransactionId).IsUnique();
+            entity.HasIndex(transfer => new { transfer.UserId, transfer.CreatedAt });
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(transfer => transfer.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<LedgerTransaction>().WithMany().HasForeignKey(transfer => transfer.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<SandboxProviderTransfer>(entity =>
+        {
+            entity.Property(transfer => transfer.ProviderTransferId).HasMaxLength(100);
+            entity.Property(transfer => transfer.Direction).HasConversion<string>().HasMaxLength(16);
+            entity.Property(transfer => transfer.Currency).HasMaxLength(3).IsFixedLength();
+            entity.Property(transfer => transfer.Status).HasMaxLength(16);
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_SandboxProviderTransfers_Amount", "\"AmountMinor\" > 0");
+                table.HasCheckConstraint("CK_SandboxProviderTransfers_Currency", "\"Currency\" = 'USD'");
+                table.HasCheckConstraint("CK_SandboxProviderTransfers_Status", "\"Status\" = 'posted'");
+            });
+            entity.HasIndex(transfer => transfer.FundingTransferId).IsUnique();
+            entity.HasIndex(transfer => transfer.ProviderTransferId).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(transfer => transfer.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<Notification>(entity =>
+        {
+            entity.Property(notification => notification.Kind).HasMaxLength(40);
+            entity.Property(notification => notification.Title).HasMaxLength(120);
+            entity.Property(notification => notification.Body).HasMaxLength(280);
+            entity.HasIndex(notification => new { notification.UserId, notification.SourceOutboxMessageId }).IsUnique();
+            entity.HasIndex(notification => new { notification.UserId, notification.CreatedAt });
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(notification => notification.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<OutboxMessage>().WithMany().HasForeignKey(notification => notification.SourceOutboxMessageId).OnDelete(DeleteBehavior.Restrict);
+        });
+        builder.Entity<WalletControl>(entity =>
+        {
+            entity.HasKey(control => control.UserId);
+            entity.HasOne<ApplicationUser>().WithOne().HasForeignKey<WalletControl>(control => control.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<ReconciliationRun>(entity =>
+        {
+            entity.Property(run => run.Status).HasMaxLength(24);
+            entity.HasIndex(run => run.CompletedAt);
         });
     }
 }
