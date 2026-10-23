@@ -1,13 +1,16 @@
 import { profileSchema, configurationSchema, activitySchema, tokenSchema, csrfSchema, problemSchema,
-  walletSchema, paymentSchema, paymentListSchema, paymentRequestSchema, paymentRequestListSchema } from './index.ts';
+  walletSchema, paymentSchema, paymentListSchema, paymentRequestSchema, paymentRequestListSchema,
+  institutionsResponseSchema, bankLinkSessionSchema, externalBankAccountSchema, accountsResponseSchema,
+  fundingTransferSchema, fundingTransferListSchema, notificationListSchema, operationsStatusSchema,
+  transactionHistorySchema } from './index.ts';
 import type { components } from './generated/api.js';
-import type { TransferRequest, CreatePaymentRequest } from './index.ts';
+import type { TransferRequest, CreatePaymentRequest, ConnectBankAccountRequest, CreateFundingTransfer } from './index.ts';
 
 export type RegisterInput = components['schemas']['RegisterRequest'];
 export type LoginInput = components['schemas']['LoginRequest'];
 export type ProfileInput = components['schemas']['UpdateProfileRequest'];
 export type TelemetryEvent = 'signup_completed' | 'login_succeeded' | 'profile_saved' | 'activity_viewed' | 'client_error';
-export type Screen = 'auth' | 'activity' | 'profile' | 'app';
+export type Screen = 'auth' | 'activity' | 'funding' | 'profile' | 'app';
 export function createIdempotencyKey() {
   return `senzy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
@@ -99,6 +102,20 @@ export function createApi(options: {
     async wallet() { return walletSchema.parse(await request('/v1/wallet/')); },
     async payments() { return paymentListSchema.parse(await request('/v1/payments/')); },
     async paymentRequests() { return paymentRequestListSchema.parse(await request('/v1/payment-requests/')); },
+    async bankingInstitutions() { return institutionsResponseSchema.parse(await request('/v1/banking/institutions', 'GET', undefined, false)); },
+    async bankAccounts() { return accountsResponseSchema.parse(await request('/v1/banking/accounts')); },
+    async createBankLinkSession() { return bankLinkSessionSchema.parse(await request('/v1/banking/link-sessions', 'POST', {})); },
+    async connectBankAccount(input: ConnectBankAccountRequest) { return externalBankAccountSchema.parse(await request('/v1/banking/accounts', 'POST', input)); },
+    async fundingTransfers() { return fundingTransferListSchema.parse(await request('/v1/funding-transfers/')); },
+    async createFundingTransfer(input: CreateFundingTransfer, key = createIdempotencyKey()) {
+      return fundingTransferSchema.parse(await request('/v1/funding-transfers/', 'POST', input, true, { 'Idempotency-Key': key }));
+    },
+    async notifications() { return notificationListSchema.parse(await request('/v1/notifications/')); },
+    async markNotificationRead(id: string) { await request(`/v1/notifications/${encodeURIComponent(id)}/read`, 'POST', {}); },
+    async operationsStatus() { return operationsStatusSchema.parse(await request('/v1/operations/status')); },
+    async freezeWallet() { await request('/v1/operations/freeze', 'POST', {}); },
+    async unfreezeWallet() { await request('/v1/operations/unfreeze', 'POST', {}); },
+    async transactionHistory() { return transactionHistorySchema.parse(await request('/v1/operations/transactions')); },
     async sendPayment(input: TransferRequest, key = createIdempotencyKey()) {
       return paymentSchema.parse(await request('/v1/payments/', 'POST', input, true, { 'Idempotency-Key': key }));
     },

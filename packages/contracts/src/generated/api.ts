@@ -192,6 +192,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/funding-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListFundingTransfers"];
+        put?: never;
+        post: operations["CreateFundingTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/{notificationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["MarkNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operations/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FreezeWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operations/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RunReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["GetOperationsStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operations/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ListTransactionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/operations/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["UnfreezeWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payment-requests": {
         parameters: {
             query?: never;
@@ -354,6 +482,14 @@ export interface components {
             institutionId: string;
             linkToken: string;
         };
+        CreateFundingTransferRequest: {
+            /** Format: int64 */
+            amountMinor: number | string;
+            currency: string;
+            direction: string;
+            /** Format: uuid */
+            externalAccountId: string;
+        };
         CreateLinkSessionRequest: Record<string, never>;
         CreatePaymentRequest: {
             /** Format: int64 */
@@ -379,6 +515,24 @@ export interface components {
             sandbox: boolean;
             status: string;
         };
+        FundingTransferListResponse: {
+            items: components["schemas"]["FundingTransferResponse"][];
+        };
+        FundingTransferResponse: {
+            /** Format: int64 */
+            amountMinor: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            currency: string;
+            direction: string;
+            /** Format: uuid */
+            externalAccountId: string;
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            providerTransferId: string;
+            status: string;
+        };
         HealthResponse: {
             service: string;
             status: string;
@@ -393,6 +547,31 @@ export interface components {
         LoginRequest: {
             email: string;
             password: string;
+        };
+        NotificationListResponse: {
+            items: components["schemas"]["NotificationResponse"][];
+            /** Format: int32 */
+            unreadCount: number | string;
+        };
+        NotificationResponse: {
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** Format: date-time */
+            readAt: null | string;
+            title: string;
+        };
+        OperationsStatusResponse: {
+            currency: string;
+            /** Format: int64 */
+            dailyOutboundLimitMinor: number | string;
+            /** Format: int64 */
+            dailyOutboundUsedMinor: number | string;
+            isFrozen: boolean;
+            latestReconciliation: null | components["schemas"]["ReconciliationResponse"];
         };
         PaymentListResponse: {
             items: components["schemas"]["PaymentResponse"][];
@@ -460,6 +639,25 @@ export interface components {
         ReadinessResponse: {
             status: string;
         };
+        ReconciliationResponse: {
+            /** Format: int32 */
+            balanceMismatches: number | string;
+            /** Format: date-time */
+            completedAt: string;
+            /** Format: int32 */
+            fundingMismatches: number | string;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            paymentMismatches: number | string;
+            /** Format: date-time */
+            startedAt: string;
+            status: string;
+            /** Format: int32 */
+            unbalancedTransactions: number | string;
+            /** Format: int64 */
+            unexplainedVarianceMinor: number | string;
+        };
         RefreshRequest: {
             refreshToken: string;
         };
@@ -486,6 +684,21 @@ export interface components {
             expiresIn: number | string;
             refreshToken: string;
             tokenType: string;
+        };
+        TransactionHistoryItem: {
+            /** Format: int64 */
+            amountMinor: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            currency: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            status: string;
+        };
+        TransactionHistoryResponse: {
+            items: components["schemas"]["TransactionHistoryItem"][];
         };
         UpdateProfileRequest: {
             displayName: string;
@@ -866,6 +1079,228 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClientConfiguration"];
                 };
+            };
+        };
+    };
+    ListFundingTransfers: {
+        parameters: {
+            query?: {
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingTransferListResponse"];
+                };
+            };
+        };
+    };
+    CreateFundingTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFundingTransferRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingTransferResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    ListNotifications: {
+        parameters: {
+            query?: {
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationListResponse"];
+                };
+            };
+        };
+    };
+    MarkNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    FreezeWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RunReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconciliationResponse"];
+                };
+            };
+        };
+    };
+    GetOperationsStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsStatusResponse"];
+                };
+            };
+        };
+    };
+    ListTransactionHistory: {
+        parameters: {
+            query?: {
+                limit?: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionHistoryResponse"];
+                };
+            };
+        };
+    };
+    UnfreezeWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
