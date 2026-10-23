@@ -15,4 +15,4 @@ The generator starts the actual API in an in-memory Development test host, with 
 
 When changing an endpoint, give it a stable operation ID and explicit request/response metadata, regenerate, inspect the diff, update consumers and runtime validators, then commit both artifacts. Do not edit generated files directly.
 
-Zod schemas in `src/index.ts` validate runtime data; TypeScript types do not. The contract command checks representative responses from the running test host against these schemas. This is a baseline check, not proof of complete schema equivalence; add cases for new endpoints and variants. The simulated payment and payment-request schemas correspond to the live authenticated Phase 2 endpoints.
+Zod schemas in `src/index.ts` validate runtime data; TypeScript types do not. The contract command checks representative responses from the running test host against these schemas. This is a baseline check, not proof of complete schema equivalence; add cases for new endpoints and variants. The shared client validates the live payment, funding, notification, operations-status, transaction-history, and sandbox-banking responses used by both applications.

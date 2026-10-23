@@ -21,10 +21,13 @@ Protect identities, sessions, private activity, balances, immutable ledger recor
 | Secret leakage through source, logs, or builds | Secret scanning in CI; local settings ignored; no credentials in telemetry; short-lived scoped deployment credentials. | CI scanning in Phase 0; deployment controls later. |
 | Dependency or CI compromise | Frozen frontend lockfile, pinned tool versions, minimal workflow permissions, no untrusted PR access to secrets, reviewed updates. | Phase 0 baseline; continuous review. |
 | Denial of service or database outage | Bounded inputs/timeouts, rate limits, explicit backpressure, readiness distinct from liveness, measured pool limits. | Health checks in Phase 0; remaining controls Phase 1/4. |
-| Lost data or silent settlement mismatch | PITR/backups, recovery drills, daily reconciliation, pause transfers on unresolved inconsistency. | Phase 3–5 planned. |
+| Lost data or silent settlement mismatch | Daily reconciliation compares ledger projections, payment/funding state, and durable sandbox-provider records; unresolved variance is explicit. PITR/backups, recovery drills, and an automated transfer pause remain pre-pilot work. | Phase 3 reconciliation implemented and tested; infrastructure recovery controls remain planned. |
+| Duplicate or lost event delivery | Commit an outbox record with the financial transaction; lease rows with `SKIP LOCKED`, retry with backoff, and make handlers idempotent with a database uniqueness constraint. | Implemented and tested in Phase 3 for in-process notification delivery. |
+| Cross-user funding, notification, or audit access | Derive the actor from authentication, validate stub-account ownership, and filter histories, notifications, controls, and funding records by the actor. Keep funding routes Development-only. | Implemented and tested in Phase 3. |
+| Unauthorized outbound movement after a freeze or above a limit | Lock the wallet before policy evaluation, persist freeze state, and enforce the daily outbound limit for sends, accepted requests, reversals, and cash-out. | Implemented and tested in Phase 3; limits remain prototype policy, not a compliance control. |
 
 ## Review triggers
 
 Revisit at authentication implementation, ledger design, external banking integration, public deployment, and any change to logging or data retention. The feature owner adds relevant abuse-case tests. Record unresolved findings in the product backlog; do not treat this document as proof that planned controls exist.
 
-The sandbox cannot move money. No real bank linking, jurisdiction-specific launch approval, or production security certification is implied by Phase 0 completion.
+The sandbox cannot move money. Durable `SandboxProviderTransfer` rows are reconciliation fixtures, not bank confirmations or settled funds. No real bank linking, jurisdiction-specific launch approval, or production security certification is implied by completing the prototype phases.

@@ -30,9 +30,9 @@ Persist and protect the ASP.NET Data Protection key ring across restarts and rep
 
 ASP.NET endpoint metadata and named request/response types are authoritative. Export OpenAPI from the real application in an in-memory development test host, normalize it, and generate TypeScript types with pinned `openapi-typescript` tooling. Commit both generated artifacts. CI regenerates them and fails on drift.
 
-Both frontend workspaces depend on `@senzy/contracts` and use its shared runtime client. Web uses cookie mode; mobile uses bearer mode with a platform token store. Runtime Zod schemas validate untrusted responses and are checked against representative live responses by the contract workflow; generated TypeScript alone does not validate network data. Phase 2 adds live wallet, payment, payment-request, and private history contracts consumed by both clients.
+Both frontend workspaces depend on `@senzy/contracts` and use its shared runtime client. Web uses cookie mode; mobile uses bearer mode with a platform token store. Runtime Zod schemas validate untrusted responses and are checked against representative live responses by the contract workflow; generated TypeScript alone does not validate network data. Phase 2 added live wallet, payment, payment-request, and private history contracts; Phase 3 adds funding, notifications, operations status, and combined transaction history consumed by both clients.
 
-New versioned endpoints use stable operation IDs, explicit response metadata, and Problem Details for errors. Additive compatible changes remain in `/v1`; breaking changes require a new API version or a coordinated pre-release contract update before consumers ship. Phase 2 implements the transfer, request, wallet, and payment-history contracts through the shared client.
+New versioned endpoints use stable operation IDs, explicit response metadata, and Problem Details for errors. Additive compatible changes remain in `/v1`; breaking changes require a new API version or a coordinated pre-release contract update before consumers ship. The shared client implements the Phase 2 payment and Phase 3 operations contracts.
 
 ## ADR 004 — Persistence and posting
 
@@ -60,7 +60,7 @@ Start with full reversals only. Partial reversals and available-balance holds re
 
 Keep `IBankingProvider` as the external-provider boundary. The in-memory stub is available only in Development, accepts generated sandbox account choices, rejects raw bank account/routing fields, binds short-lived link tokens to a user, and permits only one successful token use. Accounts and tokens disappear on restart. It is not a verified funding source and must never be exposed through a public Development deployment.
 
-External provider calls cannot commit atomically with PostgreSQL. Future integrations require pending states, durable retries, verified callbacks, and reconciliation. Write outbox events with the posting, deliver after commit, and require idempotent consumers. Introduce Redis and Kafka only after measurement shows a need. Neither owns authoritative financial data.
+External provider calls cannot commit atomically with PostgreSQL. Future integrations require pending states, durable retries, verified callbacks, and reconciliation. Phase 3 persists a `SandboxProviderTransfer` beside the funding command solely as a durable reconciliation fixture; this shortcut is not a design for real provider settlement. Outbox events commit with postings, then a leased PostgreSQL worker delivers them to database-idempotent notification handlers. Introduce Redis and Kafka only after measurement shows a need. Neither owns authoritative financial data.
 
 ## References
 

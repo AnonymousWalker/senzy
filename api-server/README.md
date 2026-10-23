@@ -29,13 +29,13 @@ flowchart TB
     Worker --> Consumers[Notifications and other consumers]
 ```
 
-Identity, EF Core persistence, simulated payment use cases, the ledger, atomic outbox records, Npgsql connectivity, and the banking stub exist today. Outbox delivery and reconciliation are Phase 3 work. Web and mobile both call the authenticated API through the shared contract client. All application modules execute in the same process. No Redis or Kafka deployment is required for the initial implementation.
+Identity, EF Core persistence, simulated payment and funding use cases, the ledger, atomic outbox records, durable in-process outbox delivery, daily reconciliation, Npgsql connectivity, and the banking stub exist today. Web and mobile both call the authenticated API through the shared contract client. All application modules and workers execute in the same process. No Redis or Kafka deployment is required for the prototype.
 
 ## Current implementation — implemented
 
-The API currently contains feature modules for health, configuration, Identity, profiles, simulated payments, the ledger, fixture activity, client telemetry, and sandbox banking. `SenzyDbContext` persists Identity, profiles, wallets, payments, requests, ledger records, scoped idempotency outcomes, and outbox records through reviewed EF Core migrations. Cross-cutting middleware supplies correlation IDs, structured request logs, consistent Problem Details, CORS, cookie antiforgery/origin checks, session-stamp validation, authorization, and rate limits. Data Protection keys persist through the Compose `api-keys` volume.
+The API currently contains feature modules for health, configuration, Identity, profiles, simulated payments and funding, the ledger, private activity, notifications, operations, client telemetry, and sandbox banking. `SenzyDbContext` persists Identity, profiles, wallets, payments, requests, funding transfers, durable sandbox-provider counterparts, ledger records, scoped idempotency outcomes, outbox delivery state, notifications, wallet controls, and reconciliation runs through reviewed EF Core migrations. Cross-cutting middleware supplies correlation IDs, structured request logs, consistent Problem Details, CORS, cookie antiforgery/origin checks, session-stamp validation, authorization, and rate limits. Data Protection keys persist through the Compose `api-keys` volume.
 
-HTTP, domain, and PostgreSQL integration tests live in `tests/Senzy.Api.Tests`; OpenAPI export tooling lives in `tools/Senzy.ContractExport`. Payment processing and ledger posting are implemented for simulated internal USD transfers. Durable outbox delivery, reconciliation, simulated funding, and real banking are not implemented.
+HTTP, domain, and PostgreSQL integration tests live in `tests/Senzy.Api.Tests`; OpenAPI export tooling lives in `tools/Senzy.ContractExport`. Payment processing, funding, ledger posting, reconciliation, and notification delivery are implemented for simulated USD records. Real banking is not implemented.
 
 See the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md) for authentication, persistence, payment states, and contract decisions.
 
@@ -60,13 +60,22 @@ See the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md) for authenti
 | `GET /v1/payment-requests/` | Payments | Authenticated private incoming/outgoing request history. |
 | `POST /v1/payment-requests/` | Payments | Authenticated idempotent request creation. |
 | `POST /v1/payment-requests/{id}/accept` | Payments | Payer-only idempotent request acceptance and posting. |
+| `GET /v1/funding-transfers/` | Funding | Development and authenticated; actor-private sandbox funding history. |
+| `POST /v1/funding-transfers/` | Funding | Development and authenticated; idempotent cash-in/out with atomic ledger, provider fixture, and outbox records. |
+| `GET /v1/notifications/` | Notifications | Authenticated actor-private notification history and unread count. |
+| `POST /v1/notifications/{id}/read` | Notifications | Authenticated owner-only read acknowledgement. |
+| `GET /v1/operations/status` | Operations | Authenticated freeze state, daily outbound usage/limit, and latest reconciliation result. |
+| `POST /v1/operations/freeze` | Operations | Authenticated self-service outbound wallet freeze. |
+| `POST /v1/operations/unfreeze` | Operations | Authenticated self-service wallet unfreeze for the prototype. |
+| `GET /v1/operations/transactions` | Operations | Authenticated actor-private combined payment and funding audit history. |
+| `POST /v1/operations/reconciliation` | Operations | Development and authenticated; runs global reconciliation and returns aggregate counts only. |
 | `POST /v1/telemetry` | Telemetry | Authenticated allowlisted analytics/error event. |
 | `GET /v1/banking/institutions` | Banking | Development only; sandbox institution list. |
 | `POST /v1/banking/link-sessions` | Banking | Development and authenticated; creates an actor-bound, 15-minute link token. |
 | `POST /v1/banking/accounts` | Banking | Development and authenticated; consumes the actor's token once. |
 | `GET /v1/banking/accounts` | Banking | Development and authenticated; reads only the actor's simulated accounts. |
 
-The stub's sessions and accounts are in memory and reset on API restart; the database bind mount does not persist them. Ownership is always derived from the authenticated principal, never from a caller-supplied user ID.
+The stub's link sessions and display accounts are in memory and reset on API restart; the database bind mount does not persist them. Committed funding and sandbox-provider transfer records are durable so reconciliation remains auditable. Ownership is always derived from the authenticated principal, never from a caller-supplied user ID.
 
 ## Code organization
 
@@ -86,7 +95,7 @@ api-server/
       Profile.cs
       ProfileRoutes.cs
     Banking/
-      BankingEndpoints.cs
+      BankingRoutes.cs
       IBankingProvider.cs
     Ledger/
       LedgerPostingService.cs
@@ -94,6 +103,16 @@ api-server/
     Payments/
       PaymentService.cs
       PaymentRoutes.cs
+    Funding/
+      FundingService.cs
+      FundingRoutes.cs
+    Notifications/
+      NotificationRoutes.cs
+    Operations/
+      OperationsRoutes.cs
+      OutboundPolicy.cs
+      ReconciliationService.cs
+      ReconciliationWorker.cs
     Activity/
       ActivityRoutes.cs
     Configuration/
@@ -103,16 +122,21 @@ api-server/
   Common/
     ApiErrors.cs
     PaymentContracts.cs
+    OperationsContracts.cs
   Infrastructure/
+    Outbox/
+      OutboxDispatcher.cs
+      OutboxWorker.cs
+    Banking/
+      StubBankingProvider.cs
     Persistence/
       SenzyDbContext.cs
       OperationalModels.cs
       Models/
+        FundingModels.cs
         LedgerModels.cs
         PaymentEntities.cs
       Migrations/
-    Banking/
-      StubBankingProvider.cs
 tests/
   Senzy.Api.Tests/                # HTTP, domain, and PostgreSQL integration tests
 tools/
@@ -123,7 +147,7 @@ Group code by business capability, then by use case where useful. Small features
 
 Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` contains shared transport contracts and cross-cutting errors; EF-backed records belong under `Infrastructure/Persistence/Models`, while feature behavior and orchestration stays in the owning feature directory.
 
-The existing `Banking/` directory stays in place until its next feature change. At that point, move its HTTP contract and provider interface to `Features/Banking/` and the stub implementation to `Infrastructure/Banking/`. Avoid maintaining both old and new implementations.
+Banking's HTTP contract and provider port live in `Features/Banking`; the in-memory adapter lives in `Infrastructure/Banking`. Funding consumes the provider port and never mutates provider data through an HTTP endpoint.
 
 ## Pragmatic layer boundaries
 
@@ -199,7 +223,7 @@ Use 400 for invalid input, 401 for missing/invalid authentication, 403 for denie
 
 ## Persistence model
 
-Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL through the Npgsql EF provider. Keep reviewed migrations in `Infrastructure/Persistence/Migrations/` and add separate entity-configuration classes as the model grows. The records below are implemented by the initial and Phase 2 migrations.
+Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL through the Npgsql EF provider. Keep reviewed migrations in `Infrastructure/Persistence/Migrations/` and add separate entity-configuration classes as the model grows. The records below are implemented by the initial, Phase 2, and Phase 3 migrations.
 
 | Record | Key relationships and constraints |
 | --- | --- |
@@ -210,7 +234,12 @@ Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL
 | Ledger transaction | Links a posting to a payment; reversal references the original transaction; a uniqueness constraint prevents duplicate posting for the same payment operation. |
 | Ledger entry | Transaction ID, account ID, debit/credit side, and positive integer minor-unit amount. Entries within a transaction balance per currency. |
 | Idempotency record | Unique actor/operation/key, canonical request fingerprint, committed outcome, and related payment ID. |
-| Outbox message | Stable event ID, event type and payload version, aggregate ID, payload, creation time, retry/claim state, and delivery status. |
+| Funding transfer | Actor-owned sandbox account reference, direction, amount/currency, provider transfer reference, posting transaction, and status. |
+| Sandbox provider transfer | Durable simulated external-side record used only to exercise reconciliation. |
+| Outbox message | Stable event ID, event type and payload version, aggregate ID, payload, creation time, lease/retry state, attempt audit, and delivery status. |
+| Notification | Actor-owned projection with a unique user/outbox source pair for idempotent delivery. |
+| Wallet control | Actor-owned freeze state; daily usage is calculated from authoritative posted records. |
+| Reconciliation run | Aggregate mismatch counts, unexplained variance, status, and timestamps. |
 
 Use `long` amounts in .NET/PostgreSQL-compatible integer storage and keep exposed JSON values within JavaScript's safe integer range. Start with USD and no FX. Available balance and settled balance have separate meanings; future holds need their own explicit model.
 
@@ -254,6 +283,16 @@ External provider calls must not be treated as atomic with PostgreSQL. Future ex
 6. Return the committed result. If the connection drops around commit, the client retries with the same key to discover the durable outcome.
 
 Insufficient funds or invalid state must not leave partial postings. Define which business rejections are persisted as idempotent outcomes before implementation. Deadlock/serialization retries are bounded and repeat the whole transaction, not only its final write. No provider HTTP call occurs while account locks are held.
+
+### Simulated funding and operations — implemented in Phase 3
+
+`Features/Funding/FundingService.cs` uses the actor-owned account selected through `IBankingProvider`, then follows the same command protocol as payments: transaction-scoped idempotency lock, wallet/settlement-account row locks, policy checks under lock, balanced ledger posting, durable response, and outbox event in one commit. Cash-in debits the user's negative-allowed sandbox issuance account and credits the wallet; cash-out does the inverse. A `SandboxProviderTransfer` is the durable simulated external-side record. It is test data, not evidence that a bank transfer settled.
+
+`OutboundPolicy` blocks outbound posting while the actor's wallet is frozen and caps the sum of posted sends and cash-outs since UTC midnight. Send, accepted-request, reversal, and cash-out paths evaluate that policy after locking the debited wallet, so concurrent commands cannot both pass a stale limit check. The prototype exposes self-service freeze and unfreeze; a real deployment needs privileged support roles and stronger unfreeze/re-authentication policy.
+
+`OutboxWorker` creates a scope per batch and per delivery. `OutboxDispatcher` claims ready rows with a bounded lease and `FOR UPDATE SKIP LOCKED`, records attempts, schedules bounded exponential retries, and marks delivery only after the handler transaction commits. Notification idempotency is database-enforced by the unique `(UserId, SourceOutboxMessageId)` pair. This local consumer establishes delivery semantics before a broker is justified.
+
+`ReconciliationWorker` runs daily after startup. The Development-only manual operation uses the same service. Each run compares debit and credit aggregates, ledger-account balance projections, payment postings/reversals, funding postings, and sandbox-provider counterparts, then persists aggregate mismatch counts and unexplained minor-unit variance. The current operations status returns only aggregate reconciliation data and actor-owned policy data; the combined audit history remains actor-private.
 
 ### Payment state machine — implemented for internal transfers and reversals
 
@@ -303,8 +342,8 @@ Compose currently runs in Development and publishes only to loopback, making san
 1. Phase 0 implemented: health module, contract export/generation, baseline tests, CI configuration, and local container deployment. The first hosted CI run is tracked separately in the [verification record](../docs/PHASE_0.md).
 2. Phase 1 implemented: `SenzyDbContext`, the initial migration, Identity, cookie/bearer sessions, ownership policies, consistent errors, tracing, profiles, private fixture activity, feature flags, telemetry, and authenticated sandbox ownership.
 3. Phase 2 implemented: payment/request state machines, send/accept/reversal use cases, ledger posting, durable idempotency, atomic outbox writes, web/mobile experiences, and PostgreSQL concurrency/retry/failure tests.
-4. Phase 3 next: add simulated funding, reconciliation, outbox delivery, and operations views.
-5. Phase 4 and later: validate the [operating targets](../docs/OPERATING_TARGETS.md), add measured scaling components, and complete launch gates from the product plan.
+4. Phase 3 implemented: simulated funding, daily limits and freezes, private operations/history views, reconciliation, durable outbox delivery, notifications, and web/mobile funding experiences.
+5. Phase 4 next: validate the [operating targets](../docs/OPERATING_TARGETS.md), add only measured scaling components, and complete later launch gates from the product plan.
 
 ## Local development
 

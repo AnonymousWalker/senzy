@@ -8,6 +8,7 @@ src/
   api/                  Configured shared-contract client
   features/
     activity/           Simulated wallet, payment, request, and history presentation
+    funding/            Sandbox account setup, funding, operations, and notifications
     auth/               Registration and sign-in presentation
     profile/            Profile presentation
   shared/

@@ -47,9 +47,9 @@ The API may return a pending result when an external workflow is required. It mu
 
 ## Current state
 
-Phases 0, 1, and 2 are implemented and locally verified. The ASP.NET Core API provides PostgreSQL-backed Identity, browser-cookie and mobile-bearer sessions, CSRF/origin protection, session revocation, profiles with unique payment handles, simulated USD wallets, sends, requests, reversals, payment history, feature configuration, allowlisted client telemetry, consistent Problem Details, correlation IDs, rate limits, and authenticated ownership for sandbox banking data. EF Core owns the reviewed migrations and explicit migration command.
+Phases 0 through 3 are implemented and locally verified. The ASP.NET Core API provides PostgreSQL-backed Identity, browser-cookie and mobile-bearer sessions, CSRF/origin protection, session revocation, profiles with unique payment handles, simulated USD wallets, sends, requests, reversals, payment and funding history, private notifications, daily outbound limits, wallet freezes, reconciliation status, feature configuration, allowlisted client telemetry, consistent Problem Details, correlation IDs, rate limits, and authenticated ownership for sandbox banking data. EF Core owns the reviewed migrations and explicit migration command.
 
-The React and Expo clients use the same shared API client and generated OpenAPI contract. Both support registration, sign-in, profile editing, a simulated balance, sends, payment requests, request acceptance, full reversals, payment history, sign-out, loading/error/empty states, and client error reporting. Every new user receives a balanced $1,000 sandbox opening entry. Payment, idempotency, balanced ledger entries, balance projections, and an outbox record commit in one PostgreSQL transaction. Banking and payments remain explicitly simulated; outbox delivery, reconciliation, simulated cash-in/cash-out, and all real-money movement are unimplemented. Phase 3 is next.
+The React and Expo clients use the same shared API client and generated OpenAPI contract. Both support registration, sign-in, profile editing, a simulated balance, sends, payment requests, request acceptance, full reversals, private history, sandbox account selection, simulated cash-in/cash-out, funding history, notifications, freeze controls, sign-out, loading/error/empty states, and client error reporting. Every new user receives a balanced $1,000 sandbox opening entry. Payments and funding transfers atomically commit their command result, balanced ledger entries, and an outbox record. A leased durable worker delivers those events to idempotent notification handlers, while daily and on-demand reconciliation compares ledger projections, payment/funding states, and durable sandbox-provider records. Banking and payments remain explicitly simulated; all real-money movement is unimplemented. Phase 4 is next.
 
 ### Repository layout
 
@@ -112,7 +112,7 @@ Exit: retries, concurrent sends, failures, and reversals cannot create duplicate
 
 Evidence: [Phase 2 verification](PHASE_2.md), the reviewed Phase 2 EF migrations, generated payment contracts, domain invariant tests, and real PostgreSQL integration tests for concurrency, idempotency, reversal, request acceptance, and transaction rollback.
 
-### Phase 3 — simulated funding and operations
+### Phase 3 — simulated funding and operations (implemented and locally verified)
 
 - Use the stub banking API for account selection and simulated cash-in/cash-out, clearly marked as sandbox data.
 - Add transaction history, private-by-default activity, notifications, limits, freezes, and support/audit views.
@@ -120,6 +120,8 @@ Evidence: [Phase 2 verification](PHASE_2.md), the reviewed Phase 2 EF migrations
 - Add a durable outbox worker and idempotent event handlers before introducing a broker.
 
 Exit: end-to-end simulated payments reconcile with zero unexplained variance.
+
+Evidence: [Phase 3 verification](PHASE_3.md), the reviewed Phase 3 EF migration, generated operations contracts, and real PostgreSQL integration tests for funding idempotency, balanced posting, ownership, limits/freezes, outbox handler idempotency, notification privacy, and reconciliation.
 
 ### Phase 4 — measured scale, Redis, and Kafka
 
@@ -160,7 +162,7 @@ Exit: explicit production approval, stable cohort metrics, and reconciled financ
 5. Completed in Phase 1: add authentication, profiles, fixture-backed activity, telemetry, and feature flags to web and mobile.
 6. Completed in Phase 2: implement the payment state machine and transactional ledger posting.
 7. Completed in Phase 2: add concurrency, idempotency, and failure-injection tests.
-8. Add simulated funding, reconciliation, and an outbox worker.
+8. Completed in Phase 3: add simulated funding, reconciliation, and a durable outbox worker.
 9. Establish the load-test workload and baseline before adding Redis or Kafka.
 
 ## Success measures
