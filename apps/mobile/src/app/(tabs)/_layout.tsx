@@ -9,6 +9,7 @@ export default function Layout() {
   if (!session.profile) return <Redirect href="/auth" />;
   return <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#214e32', tabBarLabelStyle: { fontSize: 14 } }}>
     <Tabs.Screen name="activity" options={{ title: 'Payments', tabBarIcon: () => <Text>↗</Text> }} />
+    <Tabs.Screen name="funding" options={{ title: 'Funding', tabBarIcon: () => <Text>↕</Text> }} />
     <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: () => <Text>◎</Text> }} />
   </Tabs>;
 }

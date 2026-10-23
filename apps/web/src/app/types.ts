@@ -1,1 +1,1 @@
-export type AppScreen = 'activity' | 'profile'
+export type AppScreen = 'activity' | 'funding' | 'profile'

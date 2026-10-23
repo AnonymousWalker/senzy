@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ClientConfiguration, CreatePaymentRequest, Payment, PaymentRequest, Profile, TransferRequest, Wallet } from '@senzy/contracts'
+import type { BankingInstitution, ClientConfiguration, CreateFundingTransfer, CreatePaymentRequest, ExternalBankAccount, FundingTransfer, Notification, OperationsStatus, Payment, PaymentRequest, Profile, TransferRequest, Wallet } from '@senzy/contracts'
 import type { ProfileInput } from '@senzy/contracts/client'
 import { ApiError } from '@senzy/contracts/client'
 import { api } from '../api'
@@ -7,6 +7,7 @@ import { ActivityView } from '../features/activity'
 import { AuthView } from '../features/auth'
 import type { AuthSubmission } from '../features/auth'
 import { ProfileView } from '../features/profile'
+import { FundingView } from '../features/funding'
 import { ErrorBoundary, FeedbackBanner, getErrorMessage } from '../shared'
 import type { AppScreen } from './types'
 import '../App.css'
@@ -17,6 +18,11 @@ function SenzyApp() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [payments, setPayments] = useState<Payment[] | null>(null)
   const [requests, setRequests] = useState<PaymentRequest[] | null>(null)
+  const [institutions, setInstitutions] = useState<BankingInstitution[]>([])
+  const [accounts, setAccounts] = useState<ExternalBankAccount[]>([])
+  const [fundingTransfers, setFundingTransfers] = useState<FundingTransfer[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [operations, setOperations] = useState<OperationsStatus | null>(null)
   const [screen, setScreen] = useState<AppScreen>('activity')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -81,6 +87,22 @@ function SenzyApp() {
     return () => { active = false }
   }, [userId, screen, attempt, handleFailure])
 
+  useEffect(() => {
+    let active = true
+    if (userId && screen === 'funding' && config?.sandboxBankingEnabled) {
+      void Promise.all([api.bankingInstitutions(), api.bankAccounts(), api.fundingTransfers(), api.notifications(), api.operationsStatus()])
+        .then(([nextInstitutions, nextAccounts, nextTransfers, nextNotifications, nextOperations]) => {
+          if (!active) return
+          setInstitutions(nextInstitutions.institutions)
+          setAccounts(nextAccounts.accounts)
+          setFundingTransfers(nextTransfers.items)
+          setNotifications(nextNotifications.items)
+          setOperations(nextOperations)
+        }).catch(cause => { if (active) handleFailure(cause) })
+    }
+    return () => { active = false }
+  }, [userId, screen, attempt, config?.sandboxBankingEnabled, handleFailure])
+
   async function authenticate(submission: AuthSubmission) {
     setBusy(true)
     setError('')
@@ -122,6 +144,10 @@ function SenzyApp() {
       setWallet(null)
       setPayments(null)
       setRequests(null)
+      setAccounts([])
+      setFundingTransfers([])
+      setNotifications([])
+      setOperations(null)
       setNotice('You have signed out on all devices.')
     } catch (cause) {
       handleFailure(cause)
@@ -154,6 +180,46 @@ function SenzyApp() {
     }
   }
 
+  async function linkSandboxAccount(institutionId: string, displayName: string, accountKind: 'checking' | 'savings') {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const session = await api.createBankLinkSession()
+      await api.connectBankAccount({ linkToken: session.linkToken, institutionId, displayName, accountKind })
+      setAccounts((await api.bankAccounts()).accounts)
+      setNotice('Sandbox funding source linked. No real bank was contacted.')
+    } catch (cause) { handleFailure(cause) } finally { setBusy(false) }
+  }
+
+  async function runFunding(input: CreateFundingTransfer) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      await api.createFundingTransfer(input)
+      const [nextWallet, nextTransfers, nextOperations, nextNotifications] = await Promise.all([
+        api.wallet(), api.fundingTransfers(), api.operationsStatus(), api.notifications(),
+      ])
+      setWallet(nextWallet)
+      setFundingTransfers(nextTransfers.items)
+      setOperations(nextOperations)
+      setNotifications(nextNotifications.items)
+      setNotice('Simulated funding transfer posted and queued for notification delivery.')
+    } catch (cause) { handleFailure(cause) } finally { setBusy(false) }
+  }
+
+  async function setWalletFrozen(frozen: boolean) {
+    setBusy(true)
+    setError('')
+    try {
+      if (frozen) await api.freezeWallet()
+      else await api.unfreezeWallet()
+      setOperations(await api.operationsStatus())
+      setNotice(frozen ? 'Wallet frozen. Outbound payments and cash-out are blocked.' : 'Wallet unfrozen.')
+    } catch (cause) { handleFailure(cause) } finally { setBusy(false) }
+  }
+
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="app-header">
@@ -163,6 +229,7 @@ function SenzyApp() {
     </header>
     {profile && <nav aria-label="Main navigation">
       <button aria-current={screen === 'activity' ? 'page' : undefined} onClick={() => navigate('activity')}>Activity</button>
+      {config?.sandboxBankingEnabled && <button aria-current={screen === 'funding' ? 'page' : undefined} onClick={() => navigate('funding')}>Funding</button>}
       <button aria-current={screen === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')}>Profile</button>
     </nav>}
     <main id="main">
@@ -175,7 +242,11 @@ function SenzyApp() {
               onRequest={(input: CreatePaymentRequest) => void runPaymentAction(() => api.createPaymentRequest(input), 'Payment request created.')}
               onAcceptRequest={id => void runPaymentAction(() => api.acceptPaymentRequest(id), 'Payment request paid.')}
               onReverse={id => void runPaymentAction(() => api.reversePayment(id), 'Payment reversed with a compensating ledger entry.')} />
-              : <ProfileView busy={busy} profile={profile} onSave={input => void saveProfile(input)} />}
+              : screen === 'funding' ? <FundingView accounts={accounts} busy={busy} institutions={institutions}
+                notifications={notifications} operations={operations} transfers={fundingTransfers}
+                onFunding={input => void runFunding(input)} onLink={(institutionId, displayName, accountKind) => void linkSandboxAccount(institutionId, displayName, accountKind)}
+                onSetFrozen={frozen => void setWalletFrozen(frozen)} />
+                : <ProfileView busy={busy} profile={profile} onSave={input => void saveProfile(input)} />}
     </main>
     <footer>Made for the moments between people. <span>Senzy sandbox</span></footer>
   </div>
