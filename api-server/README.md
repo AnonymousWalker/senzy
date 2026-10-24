@@ -8,9 +8,17 @@ Minimal APIs define the HTTP boundary; they do not replace application and domai
 
 Server-rendered MVC views are unnecessary because React and Expo provide the user interfaces. Controller-based APIs remain a valid alternative if future requirements justify them, but adopting controllers is not required to organize the application. See [Microsoft's API overview](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/apis?view=aspnetcore-10.0).
 
-This document records the concrete backend architecture and the blueprint for upcoming payment work. Delivery phases and launch gates remain in the [product plan](../docs/PRODUCT_PLAN.md), and decision rationale lives in the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md).
+This document records the current backend architecture and the accepted modular-monolith refactor target. Sections marked implemented describe existing behavior; target sections do not claim the refactor is complete. Delivery phases and launch gates remain in the [product plan](../docs/PRODUCT_PLAN.md), and decision rationale lives in the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md).
 
-## System architecture
+## Accepted refactor target — not yet implemented
+
+Retain one application artifact and one PostgreSQL database. Incrementally enforce module ownership through internal application contracts and useful assembly boundaries. Payments and Funding call Wallets for policy-controlled movements; Wallets calls Ledger for accounting writes. All participate in the initiating workflow's single transaction. Domain behavior must stop depending on infrastructure-owned persistence records as those boundaries are extracted.
+
+Split Operations into Wallets (freezes/limits), Reconciliation (checks/discrepancies), and Reporting (combined history). Profiles exposes recipient resolution; Notifications owns event handlers currently embedded in the outbox dispatcher. The host composes modules and shared mechanisms. Small features may remain compact.
+
+See [ADRs 007–010](../docs/ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application) for decisions and the [refactor guide](../docs/MODULAR_MONOLITH_REFACTOR.md) for the target diagram, ownership map, assembly/dependency rules, transaction protocol, migration steps, and exit criteria. Replica support, worker roles, failed-delivery replay, and operational controls described there are targets, not current deployment guarantees.
+
+## System architecture — current implementation
 
 ```mermaid
 flowchart TB
@@ -145,7 +153,7 @@ tools/
 
 Group code by business capability, then by use case where useful. Small features can start with an endpoint file and a service; they do not need every folder shown above. Use feature-specific namespaces for repeated filenames such as `Handler.cs`.
 
-Start with one application project and separate test projects. Extract class libraries when compile-time boundaries or independent reuse provide a concrete benefit. `Common/` contains shared transport contracts and cross-cutting errors; EF-backed records belong under `Infrastructure/Persistence/Models`, while feature behavior and orchestration stays in the owning feature directory.
+The current code uses one application project and separate test projects. The accepted refactor incrementally introduces module class libraries to enforce ownership while preserving one deployable artifact. `Common/` contains shared transport contracts and cross-cutting errors; EF-backed records belong under `Infrastructure/Persistence/Models`, while feature behavior and orchestration stays in the owning feature directory.
 
 Banking's HTTP contract and provider port live in `Features/Banking`; the in-memory adapter lives in `Infrastructure/Banking`. Funding consumes the provider port and never mutates provider data through an HTTP endpoint.
 
@@ -172,19 +180,11 @@ Module boundaries remain firm even though the process and database are shared:
 - `SenzyDbContext` provides atomicity; it does not make every entity shared.
 - Start in one project. Extract class libraries only for useful compile-time enforcement or reuse.
 
-## Module ownership
+## Module ownership — current implementation and target
 
-| Module | Owns | Allowed collaboration |
-| --- | --- | --- |
-| Identity | Credentials, sessions, confirmation, recovery, authenticated actor. | Profiles references its user ID; other modules consume the authenticated actor, not password records. |
-| Profiles | Display names, normalized unique payment handles, profile preferences. | Resolves a recipient to a user ID for Payments. |
-| Payments | Send/reversal use cases, payment lifecycle, command idempotency. | Invokes Ledger within the posting transaction; uses provider abstractions for future funding workflows. |
-| Ledger | Accounts, immutable transactions and entries, balance invariants. | Returns posting results to Payments; never calls payment HTTP endpoints or providers. |
-| Banking | Funding-source selection and provider-facing application operations. | Uses `IBankingProvider`; cannot directly change wallet balances. |
-| Activity | Private read models for the current user's history. | Queries authorized projections; cannot post or edit ledger entries. |
-| Outbox infrastructure | Delivery claims, retry schedule, delivery status. | Reads committed messages; invokes idempotent handlers after the business transaction commits. |
+The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: Payments directly queries profiles and ledger accounts, Funding uses shared persistence, Operations combines policies and reporting, and the outbox dispatcher contains notification handling.
 
-Keep module-owned writes inside their use cases. A shared DbContext is a transaction mechanism, not permission for every feature to mutate every table. Read-only projections may join across modules when needed, with explicit ownership checks and pagination.
+The authoritative [target ownership table](../docs/MODULAR_MONOLITH_REFACTOR.md#target-module-ownership) assigns these responsibilities during the refactor. Cross-module writes move behind owner operations; read-only projections require explicit contracts and authorization. The shared database transaction remains intact throughout the migration.
 
 ## Responsibilities and dependencies
 
@@ -198,7 +198,7 @@ Keep module-owned writes inside their use cases. A shared DbContext is a transac
 
 Endpoints call use cases; use cases invoke domain behavior and persistence or provider dependencies. For small features, the use case may initially be a focused endpoint-local operation. Once business branching, transactions, reuse, or independent tests appear, extract an application handler rather than growing the endpoint. Domain rules must not depend on HTTP request types, endpoint implementations, EF Core, or external banking SDKs.
 
-Use a scoped `SenzyDbContext` and scoped use-case handlers for database work. Register stateless domain services according to their dependencies. Retain the current singleton `NpgsqlDataSource` connection pool and development stub where appropriate. The future singleton hosted outbox worker must create a service scope for each batch rather than capture a scoped DbContext.
+Use a scoped `SenzyDbContext` and scoped use-case handlers for database work. Register stateless domain services according to their dependencies. Retain the current singleton `NpgsqlDataSource` connection pool and development stub where appropriate. The existing singleton hosted outbox worker creates service scopes for batches and deliveries rather than capturing a scoped DbContext.
 
 Derive the acting user's identity from the authenticated principal. A client-supplied user identifier must never establish ownership or authority. Resource-specific authorization belongs in the use case as well as any endpoint-level access policy.
 
@@ -255,8 +255,10 @@ A payment use case owns one PostgreSQL transaction that commits all of the follo
 
 1. The payment state.
 2. The scoped idempotency result.
-3. The balanced ledger entries.
+3. The balanced ledger entries and account balance projection updates.
 4. The outbox event.
+
+The refactor adds Wallets as the policy boundary inside this same transaction; it does not split posting into asynchronous module commits.
 
 Ledger and persistence operations participate in that transaction; they must not independently commit pieces of the payment. Return a posted result only after the commit succeeds.
 
@@ -308,6 +310,9 @@ Insufficient funds or invalid state must not leave partial postings. Define whic
 
 ## Events and scaling
 
+The existing implementation uses one delivery state per outbox message and an infrastructure dispatcher that creates notification records. Consumer-specific delivery state, module-owned handlers, failed-message replay tooling, and configurable worker roles are refactor targets; see ADRs 009–010. The current reconciliation worker runs shortly after startup and then every 24 hours in each process; coordinated scheduled execution is not implemented.
+
+
 Write outbox records with the payment transaction and publish them after commit. Start with a durable worker and idempotent consumers. Notifications and analytics run outside the payment commit.
 
 The worker claims a bounded batch using database coordination and an expiring lease, delivers outside the claim transaction, then records the outcome. A crash after delivery but before acknowledgement can deliver an event twice, so consumers deduplicate by event ID. Retry transient failures with backoff, retain failed messages for inspection/replay, and monitor oldest-message age. Do not promise exactly-once delivery. A future broker replaces the delivery destination without changing payment commit ownership.
@@ -315,6 +320,8 @@ The worker claims a bounded batch using database coordination and an expiring le
 Add Redis for measured caching or rate-limit needs, and Kafka when throughput or consumer separation warrants it. Neither is authoritative for balances, payment state, or idempotency. Keep API instances stateless; the current in-memory banking stub is development-only and is not a production persistence design.
 
 ## Testing approach
+
+The refactor additionally requires architecture dependency tests, cross-module transaction rollback tests, freeze-versus-spend concurrency tests, and multi-instance worker/session verification. See the [refactor exit criteria](../docs/MODULAR_MONOLITH_REFACTOR.md#migration-sequence-and-exit-criteria); these are planned checks.
 
 - Unit-test domain invariants and payment state transitions without an HTTP server.
 - Test HTTP contracts, authorization, validation, errors, health, and sandbox routes through an ASP.NET Core test host.

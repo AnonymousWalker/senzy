@@ -103,6 +103,7 @@ For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Por
 - [API organization](api-server/README.md)
 - [Web client organization](apps/web/README.md)
 - [Architecture decisions](docs/ARCHITECTURE_DECISIONS.md)
+- [Accepted modular-monolith refactor guide](docs/MODULAR_MONOLITH_REFACTOR.md) — target ownership, transaction boundaries, migration steps, and verification criteria; not yet implemented
 - [Workload and reliability targets](docs/OPERATING_TARGETS.md)
 - [Initial threat model](docs/THREAT_MODEL.md)
 - [Phase 0 verification](docs/PHASE_0.md)

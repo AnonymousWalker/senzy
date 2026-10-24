@@ -30,3 +30,18 @@ Run a 15-minute warmup, a 60-minute steady workload, the peak/burst stages, and 
 Measure HTTP requests, business outcomes, and commit outcomes separately. Track correlation IDs across payment, ledger, and outbox records, but never log tokens, raw financial credentials, or unrestricted request bodies. Keep user IDs out of metric labels to avoid high cardinality and unnecessary exposure.
 
 Before pilot: define alert routing and owners, prove backup restoration, measure external workflows separately, and record actual results beside these targets. PostgreSQL durability/replication and backup choices must support the stated failure scenarios.
+
+## Refactor runtime requirements — planned
+
+The [accepted refactor](MODULAR_MONOLITH_REFACTOR.md) retains one application artifact and PostgreSQL. None of the following is a measured capacity claim or a statement that multi-replica operation is already verified.
+
+- API instances may scale behind a load balancer; size aggregate connection pools and concurrency limits against database capacity. Include hot-wallet contention in measurements because additional replicas do not remove row-lock contention.
+- Share protected Data Protection keys and validate session revocation across instances. Configure trusted forwarded headers before using client IPs or scheme information behind a proxy. Establish edge/distributed rate limits where a limit must apply across replicas; current application limiters are process-local.
+- Keep the in-memory banking stub explicitly single-instance for development, or implement and verify durable sandbox state before a multi-instance sandbox test. Preserve Development guards and token ownership/expiry/single-use semantics.
+- Support optional API/worker roles in the same artifact. Coordinate scheduled reconciliation with database leases and unique scheduled-run identities, including safe takeover after crashes. Current workers run after startup and every 24 hours per process; they do not yet meet the prior-day 02:00 UTC scheduling objective.
+- Define reconciliation cutoff and snapshot semantics before claiming results under concurrent writes. Track discrepancies and authorized resolutions without editing posted ledger entries.
+- Extend outbox delivery with per-consumer checkpoints/deduplication, explicit failed-delivery state, authorized replay, and worker health. Measure retry volume, oldest pending age, failed deliveries, and projection freshness; do not claim exactly-once delivery.
+- Correlate HTTP commands, financial commits, events, and background work through tracing metadata. Measure lock waits, pool saturation, posting outcomes, reconciliation variance, and queue lag using low-cardinality labels. Keep sensitive audit records access-controlled and separate from general diagnostic logs.
+- Apply migrations explicitly, verify old/new instance and event compatibility during rollout, drain in-flight work on shutdown, and test restore/PITR plus post-restore reconciliation before reopening transfers. Define alert owners and recovery procedures before operational sign-off.
+
+Validate with multiple application instances against one isolated PostgreSQL database, including process termination during commands/delivery, expired leases, database restarts, duplicate delivery, and coordinated scheduling. Record measured results separately from these requirements. See the [refactor exit criteria](MODULAR_MONOLITH_REFACTOR.md#migration-sequence-and-exit-criteria).

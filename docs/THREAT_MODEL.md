@@ -26,6 +26,20 @@ Protect identities, sessions, private activity, balances, immutable ledger recor
 | Cross-user funding, notification, or audit access | Derive the actor from authentication, validate stub-account ownership, and filter histories, notifications, controls, and funding records by the actor. Keep funding routes Development-only. | Implemented and tested in Phase 3. |
 | Unauthorized outbound movement after a freeze or above a limit | Lock the wallet before policy evaluation, persist freeze state, and enforce the daily outbound limit for sends, accepted requests, reversals, and cash-out. | Implemented and tested in Phase 3; limits remain prototype policy, not a compliance control. |
 
+## Modular-monolith refactor threats — planned controls
+
+These controls accompany [ADRs 007–010](ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application). They are requirements to implement and test, not additions to the completed phase verification records. Module assemblies share a process and database credentials; compile-time isolation is not a hostile-code security boundary.
+
+| Threat | Required control and verification |
+| --- | --- |
+| A module bypasses financial policy through shared entities | Restrict writes to module-owned operations; enforce dependency rules; test that payment, request acceptance, reversal, and funding cannot bypass Wallets policy or independently commit Ledger changes. |
+| Freeze or limit changes race with spending | Use the same database locking protocol for policy mutations and movement checks; test both execution orders and concurrent instances. An eventual reporting projection must never authorize spending. |
+| Administrative actions or replay bypass ownership | Define explicit role/resource authorization and any required re-authentication before exposing administrative unfreeze, discrepancy resolution, or delivery replay. Persist sensitive-action audit records with actor, action, resource, outcome, and correlation metadata; exclude credentials and unnecessary private payloads. Current self-service controls are not an administrative authorization design. |
+| Replica-local state permits token reuse, session inconsistency, or rate-limit evasion | Share protected key material, preserve security-stamp revocation, establish global limits where required, and retain single-instance sandbox restrictions until durable token semantics are verified. Test across independent instances; trust forwarded headers only from configured proxies. |
+| Duplicate events or operator replay repeats side effects | Deduplicate per consumer/event, preserve IDs during replay, authorize replay tooling, and test crashes around consumer commit and acknowledgement. Minimize event payloads and define retention/access rules for events, failures, and audit records. |
+| Concurrent reconciliation reports false variance or overwrites records | Use a consistent read view/cutoff and coordinated runs; retain discrepancies and resolution history. Corrections require an authorized compensating financial command, never direct edits to posted entries. |
+| New module persistence breaks rollback or loses historical outcomes | Verify one shared connection/transaction, migration compatibility, retained idempotency records, cross-module rollback, and restore/reconciliation using real PostgreSQL. |
+
 ## Review triggers
 
 Revisit at authentication implementation, ledger design, external banking integration, public deployment, and any change to logging or data retention. The feature owner adds relevant abuse-case tests. Record unresolved findings in the product backlog; do not treat this document as proof that planned controls exist.
