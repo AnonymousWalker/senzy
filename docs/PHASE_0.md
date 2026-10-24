@@ -6,7 +6,7 @@ Status: implementation complete and checks verified locally. The GitHub Actions 
 
 | Requirement | Evidence |
 | --- | --- |
-| Architecture and feature boundaries | [API README](../api-server/README.md) and [architecture decisions](ARCHITECTURE_DECISIONS.md). |
+| Architecture and feature boundaries | [API README](../api-server/README.md) and [backend architecture](BACKEND_ARCHITECTURE.md). |
 | Authentication, payment state, ledger, and stub decisions | ADR 002 and ADR 004–006; implementation stays in its planned phase. |
 | Shared contract workflow | [Contract README](../packages/contracts/README.md), exported OpenAPI, generated TypeScript, runtime sample validation, and drift check. |
 | Reproducible toolchain | Node `.nvmrc`, pinned pnpm, frozen lockfile, .NET `global.json`, and root commands. |

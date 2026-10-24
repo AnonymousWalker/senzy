@@ -6,7 +6,7 @@ These instructions apply across the repository. More specific `AGENTS.md` files 
 
 Load only the guidance needed for the files being changed:
 
-- Backend architecture, module ownership, persistence, or payments: `api-server/README.md` and `docs/ARCHITECTURE_DECISIONS.md`.
+- Backend architecture, module ownership, persistence, or payments: `api-server/README.md` and `docs/BACKEND_ARCHITECTURE.md`.
 - React web work: `apps/web/README.md`.
 - API shapes, generated TypeScript, runtime validation, or the shared client: `packages/contracts/README.md`.
 - Performance, reliability, capacity, recovery, or observability: `docs/OPERATING_TARGETS.md`.

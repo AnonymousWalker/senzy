@@ -8,7 +8,7 @@ Minimal APIs define the HTTP boundary; they do not replace application and domai
 
 Server-rendered MVC views are unnecessary because React and Expo provide the user interfaces. Controller-based APIs remain a valid alternative if future requirements justify them, but adopting controllers is not required to organize the application. See [Microsoft's API overview](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/apis?view=aspnetcore-10.0).
 
-This document records the current backend architecture and the accepted modular-monolith refactor target. Sections marked implemented describe existing behavior; target sections do not claim the refactor is complete. Delivery phases and launch gates remain in the [product plan](../docs/PRODUCT_PLAN.md), and decision rationale lives in the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md).
+This document records implementation details for the backend. The authoritative decisions, ownership model, and refactor plan live in the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md). Delivery phases and launch gates remain in the [product plan](../docs/PRODUCT_PLAN.md).
 
 ## Accepted refactor target — not yet implemented
 
@@ -16,7 +16,7 @@ Retain one application artifact and one PostgreSQL database. Incrementally enfor
 
 Split Operations into Wallets (freezes/limits), Reconciliation (checks/discrepancies), and Reporting (combined history). Profiles remains a concrete recipient operation for now; Notifications owns event handlers currently embedded in the outbox dispatcher. The host composes modules and shared mechanisms. Small features may remain compact.
 
-See [ADRs 007–010](../docs/ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application) for decisions and the [refactor guide](../docs/MODULAR_MONOLITH_REFACTOR.md) for the target diagram, ownership map, assembly/dependency rules, transaction protocol, migration steps, and exit criteria. Replica support, worker roles, failed-delivery replay, and operational controls described there are targets, not current deployment guarantees.
+See the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md) for the target diagram, ownership map, assembly/dependency rules, transaction protocol, migration steps, and exit criteria. Replica support, worker roles, failed-delivery replay, and operational controls described there are targets, not current deployment guarantees.
 
 ## System architecture — current implementation
 
@@ -45,7 +45,7 @@ The API currently contains feature modules for health, configuration, Identity, 
 
 HTTP, domain, and PostgreSQL integration tests live in `tests/Senzy.Api.Tests`; OpenAPI export tooling lives in `tools/Senzy.ContractExport`. Payment processing, funding, ledger posting, reconciliation, and notification delivery are implemented for simulated USD records. Real banking is not implemented.
 
-See the [architecture decisions](../docs/ARCHITECTURE_DECISIONS.md) for authentication, persistence, payment states, and contract decisions.
+See the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md) for authentication, persistence, payment states, and contract decisions.
 
 | Method and route | Owner | Availability and behavior |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ Module boundaries remain firm even though the process and database are shared:
 
 The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: read projections still use shared persistence, Profiles remains a concrete operation, Operations remains a compatibility route composition layer, and the outbox dispatcher now delegates notification behavior to `NotificationEventHandler` while owning delivery mechanics. Contracts are reserved for the scale-critical financial, provider, and consumer boundaries.
 
-The authoritative [target ownership table](../docs/MODULAR_MONOLITH_REFACTOR.md#target-module-ownership) assigns these responsibilities during the refactor. Cross-module writes move behind owner operations; read-only projections require explicit contracts and authorization. The shared database transaction remains intact throughout the migration.
+The authoritative [module ownership table](../docs/BACKEND_ARCHITECTURE.md#module-ownership) assigns these responsibilities during the refactor. Cross-module writes move behind owner operations; read-only projections require explicit contracts and authorization. The shared database transaction remains intact throughout the migration.
 
 ## Responsibilities and dependencies
 
@@ -328,7 +328,7 @@ Add Redis for measured caching or rate-limit needs, and Kafka when throughput or
 
 ## Testing approach
 
-The refactor additionally requires architecture dependency tests, cross-module transaction rollback tests, freeze-versus-spend concurrency tests, and multi-instance worker/session verification. See the [refactor exit criteria](../docs/MODULAR_MONOLITH_REFACTOR.md#migration-sequence-and-exit-criteria); these are planned checks.
+The refactor additionally requires architecture dependency tests, cross-module transaction rollback tests, freeze-versus-spend concurrency tests, and multi-instance worker/session verification. See the [backend architecture verification criteria](../docs/BACKEND_ARCHITECTURE.md#verification-and-acceptance); these are planned checks.
 
 - Unit-test domain invariants and payment state transitions without an HTTP server.
 - Test HTTP contracts, authorization, validation, errors, health, and sandbox routes through an ASP.NET Core test host.

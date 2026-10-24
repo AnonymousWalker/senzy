@@ -84,7 +84,7 @@ The root `package.json` provides workspace commands; pnpm manages the frontend a
 
 Exit: architecture decisions and the contract workflow are agreed; the existing prototype remains reproducible and CI runs the required checks.
 
-Evidence: [architecture decisions](ARCHITECTURE_DECISIONS.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured. Phases 1 and 2 are also complete; Phase 3 is next.
+Evidence: [backend architecture](BACKEND_ARCHITECTURE.md), [contract workflow](../packages/contracts/README.md), [operating targets](OPERATING_TARGETS.md), [threat model](THREAT_MODEL.md), and [verification record](PHASE_0.md). Required checks have passed locally. The [GitHub Actions workflow](../.github/workflows/ci.yml) is configured. Phases 1 and 2 are also complete; Phase 3 is next.
 
 ### Phase 1 — authenticated web and mobile prototype (implemented and locally verified)
 

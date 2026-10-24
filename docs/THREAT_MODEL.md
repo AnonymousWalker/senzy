@@ -28,7 +28,7 @@ Protect identities, sessions, private activity, balances, immutable ledger recor
 
 ## Modular-monolith refactor threats — planned controls
 
-These controls accompany [ADRs 007–010](ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application). They are requirements to implement and test, not additions to the completed phase verification records. Module assemblies share a process and database credentials; compile-time isolation is not a hostile-code security boundary.
+These controls accompany the [unified backend architecture](BACKEND_ARCHITECTURE.md). They are requirements to implement and test, not additions to the completed phase verification records. Module assemblies share a process and database credentials; compile-time isolation is not a hostile-code security boundary.
 
 | Threat | Required control and verification |
 | --- | --- |

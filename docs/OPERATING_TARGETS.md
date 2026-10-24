@@ -33,7 +33,7 @@ Before pilot: define alert routing and owners, prove backup restoration, measure
 
 ## Refactor runtime requirements — planned
 
-The [accepted refactor](MODULAR_MONOLITH_REFACTOR.md) retains one application artifact and PostgreSQL. None of the following is a measured capacity claim or a statement that multi-replica operation is already verified.
+The [accepted refactor](BACKEND_ARCHITECTURE.md) retains one application artifact and PostgreSQL. None of the following is a measured capacity claim or a statement that multi-replica operation is already verified.
 
 - API instances may scale behind a load balancer; size aggregate connection pools and concurrency limits against database capacity. Include hot-wallet contention in measurements because additional replicas do not remove row-lock contention.
 - Share protected Data Protection keys and validate session revocation across instances. Configure trusted forwarded headers before using client IPs or scheme information behind a proxy. Establish edge/distributed rate limits where a limit must apply across replicas; current application limiters are process-local.
@@ -44,4 +44,4 @@ The [accepted refactor](MODULAR_MONOLITH_REFACTOR.md) retains one application ar
 - Correlate HTTP commands, financial commits, events, and background work through tracing metadata. Measure lock waits, pool saturation, posting outcomes, reconciliation variance, and queue lag using low-cardinality labels. Keep sensitive audit records access-controlled and separate from general diagnostic logs.
 - Apply migrations explicitly, verify old/new instance and event compatibility during rollout, drain in-flight work on shutdown, and test restore/PITR plus post-restore reconciliation before reopening transfers. Define alert owners and recovery procedures before operational sign-off.
 
-Validate with multiple application instances against one isolated PostgreSQL database, including process termination during commands/delivery, expired leases, database restarts, duplicate delivery, and coordinated scheduling. Record measured results separately from these requirements. See the [refactor exit criteria](MODULAR_MONOLITH_REFACTOR.md#migration-sequence-and-exit-criteria).
+Validate with multiple application instances against one isolated PostgreSQL database, including process termination during commands/delivery, expired leases, database restarts, duplicate delivery, and coordinated scheduling. Record measured results separately from these requirements. See the [backend architecture verification criteria](BACKEND_ARCHITECTURE.md#verification-and-acceptance).
