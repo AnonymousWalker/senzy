@@ -118,8 +118,11 @@ api-server/
       NotificationRoutes.cs
     Operations/
       OperationsRoutes.cs
+    Reconciliation/
       ReconciliationService.cs
       ReconciliationWorker.cs
+    Reporting/
+      TransactionHistoryService.cs
     Wallets/
       WalletPolicy.cs
     Activity/
@@ -183,7 +186,7 @@ Module boundaries remain firm even though the process and database are shared:
 
 ## Module ownership — current implementation and target
 
-The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: read projections still use shared persistence, Operations combines policies and reporting for compatibility, and the outbox dispatcher now delegates notification behavior to `NotificationEventHandler` while owning delivery mechanics.
+The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: read projections still use shared persistence, Operations remains a compatibility route composition layer, and the outbox dispatcher now delegates notification behavior to `NotificationEventHandler` while owning delivery mechanics.
 
 The authoritative [target ownership table](../docs/MODULAR_MONOLITH_REFACTOR.md#target-module-ownership) assigns these responsibilities during the refactor. Cross-module writes move behind owner operations; read-only projections require explicit contracts and authorization. The shared database transaction remains intact throughout the migration.
 

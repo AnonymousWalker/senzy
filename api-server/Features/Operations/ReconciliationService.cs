@@ -3,7 +3,7 @@ using Senzy.Api.Common;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
-namespace Senzy.Api.Features.Operations;
+namespace Senzy.Api.Features.Reconciliation;
 
 public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
 {

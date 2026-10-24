@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Senzy.Api.Common;
-using Senzy.Api.Features.Operations;
+using Senzy.Api.Features.Reconciliation;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;

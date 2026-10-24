@@ -1,4 +1,6 @@
-namespace Senzy.Api.Features.Operations;
+using Senzy.Api.Features.Reconciliation;
+
+namespace Senzy.Api.Features.Reconciliation;
 
 public sealed class ReconciliationWorker(IServiceScopeFactory scopeFactory, ILogger<ReconciliationWorker> logger) : BackgroundService
 {

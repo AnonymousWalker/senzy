@@ -23,6 +23,8 @@ using Senzy.Api.Features.Payments;
 using Senzy.Api.Features.Funding;
 using Senzy.Api.Features.Notifications;
 using Senzy.Api.Features.Operations;
+using Senzy.Api.Features.Reconciliation;
+using Senzy.Api.Features.Reporting;
 using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
@@ -90,6 +92,7 @@ builder.Services.AddScoped<IWalletPolicy>(services => services.GetRequiredServic
 builder.Services.AddScoped<IWalletMovementService, WalletMovementService>();
 builder.Services.AddScoped<IRecipientDirectory, RecipientDirectory>();
 builder.Services.AddScoped<ReconciliationService>();
+builder.Services.AddScoped<TransactionHistoryService>();
 builder.Services.AddScoped<OutboxDispatcher>();
 builder.Services.AddScoped<Senzy.Api.Features.Notifications.NotificationEventHandler>();
 builder.Services.AddScoped<IPaymentFailureInjector, NoopPaymentFailureInjector>();
