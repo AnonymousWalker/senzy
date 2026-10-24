@@ -19,8 +19,29 @@ public sealed class OutboxMessage
     public string Type { get; set; } = "";
     public int Version { get; set; } = 1;
     public Guid AggregateId { get; set; }
+    public Guid? CorrelationId { get; set; }
+    public Guid? CausationId { get; set; }
     public string PayloadJson { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
+    public int AttemptCount { get; set; }
+    public DateTimeOffset? NextAttemptAt { get; set; }
+    public Guid? LockId { get; set; }
+    public DateTimeOffset? LockedUntil { get; set; }
+    public string? LastError { get; set; }
+}
+
+public sealed class OutboxConsumer
+{
+    public string Name { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class OutboxDelivery
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid OutboxMessageId { get; set; }
+    public string ConsumerName { get; set; } = "";
     public DateTimeOffset? DeliveredAt { get; set; }
     public int AttemptCount { get; set; }
     public DateTimeOffset? NextAttemptAt { get; set; }

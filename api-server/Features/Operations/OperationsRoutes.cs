@@ -13,7 +13,7 @@ public static class OperationsRoutes
     public static void MapOperationsRoutes(this WebApplication app)
     {
         var group = app.MapGroup("/v1/operations").RequireAuthorization().RequireRateLimiting("payments").WithTags("Operations");
-        group.MapGet("/status", async (ClaimsPrincipal actor, WalletPolicy walletPolicy,
+        group.MapGet("/status", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy,
             ReconciliationService reconciliation, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
@@ -22,14 +22,14 @@ public static class OperationsRoutes
                 await walletPolicy.UsedTodayAsync(actorId, ct), "USD", await reconciliation.LatestAsync(ct)));
         }).WithName("GetOperationsStatus").Produces<OperationsStatusResponse>();
 
-        group.MapPost("/freeze", async (ClaimsPrincipal actor, WalletPolicy walletPolicy, CancellationToken ct) =>
+        group.MapPost("/freeze", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
             await walletPolicy.SetFrozenAsync(actorId, true, ct);
             return Results.NoContent();
         }).WithName("FreezeWallet").Produces(204);
 
-        group.MapPost("/unfreeze", async (ClaimsPrincipal actor, WalletPolicy walletPolicy, CancellationToken ct) =>
+        group.MapPost("/unfreeze", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
             await walletPolicy.SetFrozenAsync(actorId, false, ct);

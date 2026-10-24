@@ -739,6 +739,66 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.OutboxConsumer", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("OutboxConsumers");
+                });
+
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.OutboxDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConsumerName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("LockId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OutboxMessageId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutboxMessageId", "ConsumerName")
+                        .IsUnique();
+
+                    b.HasIndex("ConsumerName", "DeliveredAt", "NextAttemptAt");
+
+                    b.ToTable("OutboxDeliveries", t =>
+                        {
+                            t.HasCheckConstraint("CK_OutboxDeliveries_Attempts", "\"AttemptCount\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.OutboxMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -750,6 +810,12 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("AttemptCount")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("CausationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1027,6 +1093,21 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Senzy.Api.Infrastructure.Persistence.OutboxDelivery", b =>
+                {
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.OutboxConsumer", null)
+                        .WithMany()
+                        .HasForeignKey("ConsumerName")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Senzy.Api.Infrastructure.Persistence.OutboxMessage", null)
+                        .WithMany()
+                        .HasForeignKey("OutboxMessageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

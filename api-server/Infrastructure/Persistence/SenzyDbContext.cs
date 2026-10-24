@@ -20,6 +20,8 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
     public DbSet<SandboxProviderTransfer> SandboxProviderTransfers => Set<SandboxProviderTransfer>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<OutboxConsumer> OutboxConsumers => Set<OutboxConsumer>();
+    public DbSet<OutboxDelivery> OutboxDeliveries => Set<OutboxDelivery>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<WalletControl> WalletControls => Set<WalletControl>();
     public DbSet<ReconciliationRun> ReconciliationRuns => Set<ReconciliationRun>();
@@ -138,6 +140,21 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
                 table.HasCheckConstraint("CK_OutboxMessages_Attempts", "\"AttemptCount\" >= 0");
             });
             entity.HasIndex(message => new { message.DeliveredAt, message.NextAttemptAt, message.CreatedAt });
+        });
+        builder.Entity<OutboxConsumer>(entity =>
+        {
+            entity.HasKey(consumer => consumer.Name);
+            entity.Property(consumer => consumer.Name).HasMaxLength(80);
+        });
+        builder.Entity<OutboxDelivery>(entity =>
+        {
+            entity.Property(delivery => delivery.ConsumerName).HasMaxLength(80);
+            entity.Property(delivery => delivery.LastError).HasMaxLength(500);
+            entity.HasIndex(delivery => new { delivery.OutboxMessageId, delivery.ConsumerName }).IsUnique();
+            entity.HasIndex(delivery => new { delivery.ConsumerName, delivery.DeliveredAt, delivery.NextAttemptAt });
+            entity.HasOne<OutboxMessage>().WithMany().HasForeignKey(delivery => delivery.OutboxMessageId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<OutboxConsumer>().WithMany().HasForeignKey(delivery => delivery.ConsumerName).OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint("CK_OutboxDeliveries_Attempts", "\"AttemptCount\" >= 0"));
         });
         builder.Entity<FundingTransfer>(entity =>
         {

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
+using Senzy.Api.Features.Ledger;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
@@ -9,7 +10,7 @@ namespace Senzy.Api.Features.Wallets;
 /// Owns wallet controls and outbound movement policy while participating in the
 /// caller's PostgreSQL transaction. The service never commits independently.
 /// </summary>
-public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfiguration configuration)
+public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfiguration configuration) : IWalletPolicy
 {
     public long DailyLimitMinor => configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L);
 
@@ -48,5 +49,72 @@ public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfigu
         control.IsFrozen = frozen;
         control.UpdatedAt = clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
+    }
+}
+
+public interface IWalletPolicy
+{
+    long DailyLimitMinor { get; }
+    Task<bool> IsFrozenAsync(Guid actorId, CancellationToken ct);
+    Task<long> UsedTodayAsync(Guid actorId, CancellationToken ct);
+    Task EnsureAllowedAsync(Guid actorId, long amountMinor, CancellationToken ct);
+    Task SetFrozenAsync(Guid actorId, bool frozen, CancellationToken ct);
+}
+
+public sealed record WalletMovementRequest(
+    Guid DebitOwnerUserId,
+    LedgerAccountPurpose DebitPurpose,
+    Guid CreditOwnerUserId,
+    LedgerAccountPurpose CreditPurpose,
+    long AmountMinor,
+    string Currency,
+    LedgerTransactionKind Kind,
+    Guid? PaymentId = null,
+    Guid? FundingTransferId = null,
+    Guid? ReversesTransactionId = null,
+    bool EnforceOutboundPolicy = true);
+
+public sealed record WalletMovementResult(Guid LedgerTransactionId);
+
+public interface IWalletMovementService
+{
+    Task<WalletMovementResult> MoveAsync(WalletMovementRequest request, CancellationToken ct);
+}
+
+public sealed class WalletMovementService(SenzyDbContext db, WalletPolicy policy, LedgerPostingService ledger, TimeProvider clock)
+    : IWalletMovementService
+{
+    public async Task<WalletMovementResult> MoveAsync(WalletMovementRequest request, CancellationToken ct)
+    {
+        if (request.AmountMinor <= 0 || request.Currency != "USD")
+            throw new PaymentCommandException(400, "invalid_movement", "The wallet movement is invalid.");
+
+        var ids = await db.LedgerAccounts.AsNoTracking()
+            .Where(account => ((account.OwnerUserId == request.DebitOwnerUserId && account.Purpose == request.DebitPurpose) ||
+                              (account.OwnerUserId == request.CreditOwnerUserId && account.Purpose == request.CreditPurpose)) &&
+                              account.Currency == request.Currency)
+            .Select(account => account.Id).ToListAsync(ct);
+        if (ids.Count != 2)
+            throw new PaymentCommandException(409, "wallet_unavailable", "A simulated wallet is unavailable.");
+
+        var low = ids.Min();
+        var high = ids.Max();
+        var accounts = await db.LedgerAccounts.FromSqlInterpolated(
+            $"""SELECT * FROM "LedgerAccounts" WHERE "Id" IN ({low}, {high}) ORDER BY "Id" FOR UPDATE""").ToListAsync(ct);
+        var debit = accounts.Single(account => account.OwnerUserId == request.DebitOwnerUserId && account.Purpose == request.DebitPurpose);
+        var credit = accounts.Single(account => account.OwnerUserId == request.CreditOwnerUserId && account.Purpose == request.CreditPurpose);
+        if (request.EnforceOutboundPolicy)
+            await policy.EnsureAllowedAsync(request.DebitOwnerUserId, request.AmountMinor, ct);
+        try
+        {
+            var posting = ledger.Post(debit, credit, request.AmountMinor, request.Kind, clock.GetUtcNow(),
+                request.PaymentId, request.ReversesTransactionId, request.FundingTransferId);
+            db.LedgerTransactions.Add(posting);
+            return new(posting.Id);
+        }
+        catch (InsufficientFundsException)
+        {
+            throw new PaymentCommandException(409, "insufficient_funds", "Your simulated balance is too low for this movement.");
+        }
     }
 }

@@ -1,10 +1,14 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Senzy.Api.Features.Notifications;
 using Senzy.Api.Infrastructure.Persistence;
 
 namespace Senzy.Api.Infrastructure.Outbox;
 
-public sealed class OutboxDispatcher(SenzyDbContext db, TimeProvider clock, ILogger<OutboxDispatcher> logger)
+public sealed class OutboxDispatcher(
+    SenzyDbContext db,
+    TimeProvider clock,
+    NotificationEventHandler notifications,
+    ILogger<OutboxDispatcher> logger)
 {
     private static readonly TimeSpan Lease = TimeSpan.FromMinutes(2);
 
@@ -13,103 +17,104 @@ public sealed class OutboxDispatcher(SenzyDbContext db, TimeProvider clock, ILog
         var now = clock.GetUtcNow();
         var lockId = Guid.NewGuid();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var messages = await db.OutboxMessages.FromSqlInterpolated($$"""
-            SELECT * FROM "OutboxMessages"
-            WHERE "DeliveredAt" IS NULL
-              AND ("NextAttemptAt" IS NULL OR "NextAttemptAt" <= {{now}})
-              AND ("LockedUntil" IS NULL OR "LockedUntil" <= {{now}})
-            ORDER BY "CreatedAt", "Id"
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "OutboxConsumers" ("Name", "CreatedAt")
+            VALUES ({NotificationEventHandler.ConsumerName}, {now})
+            ON CONFLICT ("Name") DO NOTHING
+            """, ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "OutboxDeliveries" ("Id", "OutboxMessageId", "ConsumerName", "AttemptCount")
+            SELECT gen_random_uuid(), message."Id", {NotificationEventHandler.ConsumerName}, 0
+            FROM "OutboxMessages" message
+            WHERE NOT EXISTS (
+                SELECT 1 FROM "OutboxDeliveries" delivery
+                WHERE delivery."OutboxMessageId" = message."Id"
+                  AND delivery."ConsumerName" = {NotificationEventHandler.ConsumerName})
+            ON CONFLICT ("OutboxMessageId", "ConsumerName") DO NOTHING
+            """, ct);
+        var deliveries = await db.OutboxDeliveries.FromSqlInterpolated($$"""
+            SELECT delivery.*
+            FROM "OutboxDeliveries" delivery
+            WHERE delivery."ConsumerName" = {{NotificationEventHandler.ConsumerName}}
+              AND delivery."DeliveredAt" IS NULL
+              AND (delivery."NextAttemptAt" IS NULL OR delivery."NextAttemptAt" <= {{now}})
+              AND (delivery."LockedUntil" IS NULL OR delivery."LockedUntil" <= {{now}})
+            ORDER BY delivery."Id"
             LIMIT {{Math.Clamp(batchSize, 1, 100)}}
             FOR UPDATE SKIP LOCKED
             """).ToListAsync(ct);
-        foreach (var message in messages)
+        foreach (var delivery in deliveries)
         {
-            message.LockId = lockId;
-            message.LockedUntil = now.Add(Lease);
+            delivery.LockId = lockId;
+            delivery.LockedUntil = now.Add(Lease);
         }
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
-        return messages.Select(message => message.Id).ToList();
+        return deliveries.Select(delivery => delivery.Id).ToList();
     }
 
-    public async Task DispatchAsync(Guid messageId, CancellationToken ct)
+    public async Task DispatchAsync(Guid deliveryId, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var message = await db.OutboxMessages.FromSqlInterpolated(
-            $"""SELECT * FROM "OutboxMessages" WHERE "Id" = {messageId} FOR UPDATE""").SingleOrDefaultAsync(ct);
-        if (message is null || message.DeliveredAt is not null) return;
+        var delivery = await db.OutboxDeliveries.FromSqlInterpolated(
+            $"""SELECT * FROM "OutboxDeliveries" WHERE "Id" = {deliveryId} FOR UPDATE""").SingleOrDefaultAsync(ct);
+        if (delivery is null)
+        {
+            // Keep direct/manual dispatch compatible with callers that identify
+            // the immutable event rather than its consumer delivery row.
+            var eventMessage = await db.OutboxMessages.AsNoTracking().SingleOrDefaultAsync(value => value.Id == deliveryId, ct);
+            if (eventMessage is null) return;
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "OutboxConsumers" ("Name", "CreatedAt")
+                VALUES ({NotificationEventHandler.ConsumerName}, {now})
+                ON CONFLICT ("Name") DO NOTHING
+                """, ct);
+            delivery = await db.OutboxDeliveries.SingleOrDefaultAsync(value =>
+                value.OutboxMessageId == deliveryId && value.ConsumerName == NotificationEventHandler.ConsumerName, ct);
+            if (delivery is null)
+            {
+                delivery = new OutboxDelivery
+                {
+                    OutboxMessageId = deliveryId,
+                    ConsumerName = NotificationEventHandler.ConsumerName
+                };
+                db.OutboxDeliveries.Add(delivery);
+                await db.SaveChangesAsync(ct);
+            }
+        }
+        if (delivery.DeliveredAt is not null) return;
+        var message = await db.OutboxMessages.AsNoTracking().SingleOrDefaultAsync(value => value.Id == delivery.OutboxMessageId, ct);
+        if (message is null)
+        {
+            delivery.DeliveredAt = now;
+            delivery.LockId = null;
+            delivery.LockedUntil = null;
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return;
+        }
         try
         {
-            message.AttemptCount++;
-            await HandleAsync(message, now, ct);
-            message.DeliveredAt = now;
-            message.LockId = null;
-            message.LockedUntil = null;
-            message.NextAttemptAt = null;
-            message.LastError = null;
+            delivery.AttemptCount++;
+            await notifications.HandleAsync(message, now, ct);
+            delivery.DeliveredAt = now;
+            delivery.LockId = null;
+            delivery.LockedUntil = null;
+            delivery.NextAttemptAt = null;
+            delivery.LastError = null;
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            logger.LogWarning(error, "Outbox delivery failed for {MessageId} ({MessageType})", message.Id, message.Type);
-            message.LockId = null;
-            message.LockedUntil = null;
-            message.NextAttemptAt = now.AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(message.AttemptCount, 8))));
-            message.LastError = error.Message.Length <= 500 ? error.Message : error.Message[..500];
+            logger.LogWarning(error, "Outbox delivery failed for {DeliveryId} ({MessageId})", delivery.Id, message.Id);
+            delivery.LockId = null;
+            delivery.LockedUntil = null;
+            delivery.NextAttemptAt = now.AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(delivery.AttemptCount, 8))));
+            delivery.LastError = error.Message.Length <= 500 ? error.Message : error.Message[..500];
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
     }
-
-    private async Task HandleAsync(OutboxMessage message, DateTimeOffset now, CancellationToken ct)
-    {
-        using var payload = JsonDocument.Parse(message.PayloadJson);
-        var root = payload.RootElement;
-        var recipients = new List<(Guid UserId, string Kind, string Title, string Body)>();
-        switch (message.Type)
-        {
-            case "payment.posted":
-                var sender = root.GetProperty("senderUserId").GetGuid();
-                var recipient = root.GetProperty("recipientUserId").GetGuid();
-                var amount = root.GetProperty("amountMinor").GetInt64();
-                recipients.Add((sender, "payment_sent", "Payment sent", $"You sent {FormatAmount(amount)} in the sandbox."));
-                recipients.Add((recipient, "payment_received", "Payment received", $"You received {FormatAmount(amount)} in the sandbox."));
-                break;
-            case "payment.reversed":
-                var payment = await db.Payments.AsNoTracking().SingleAsync(value => value.Id == message.AggregateId, ct);
-                recipients.Add((payment.SenderUserId, "payment_reversed", "Payment reversed", $"Your {FormatAmount(payment.AmountMinor)} payment was reversed."));
-                recipients.Add((payment.RecipientUserId, "payment_reversed", "Payment reversed", $"A {FormatAmount(payment.AmountMinor)} payment you received was reversed."));
-                break;
-            case "payment_request.created":
-                recipients.Add((root.GetProperty("payerUserId").GetGuid(), "payment_request", "Payment requested",
-                    $"You have a sandbox request for {FormatAmount(root.GetProperty("amountMinor").GetInt64())}."));
-                break;
-            case "payment_request.paid":
-                var request = await db.PaymentRequests.AsNoTracking().SingleAsync(value => value.Id == message.AggregateId, ct);
-                recipients.Add((request.RequesterUserId, "request_paid", "Request paid", $"Your {FormatAmount(request.AmountMinor)} request was paid."));
-                break;
-            case "funding.posted":
-                var direction = root.GetProperty("direction").GetString();
-                recipients.Add((root.GetProperty("userId").GetGuid(), "funding_posted",
-                    direction == "cash_in" ? "Cash-in complete" : "Cash-out complete",
-                    $"Your simulated {direction?.Replace('_', '-')} of {FormatAmount(root.GetProperty("amountMinor").GetInt64())} posted."));
-                break;
-            default:
-                return;
-        }
-        foreach (var recipient in recipients)
-        {
-            if (await db.Notifications.AnyAsync(notification => notification.UserId == recipient.UserId &&
-                notification.SourceOutboxMessageId == message.Id, ct)) continue;
-            db.Notifications.Add(new()
-            {
-                UserId = recipient.UserId, SourceOutboxMessageId = message.Id, Kind = recipient.Kind,
-                Title = recipient.Title, Body = recipient.Body, CreatedAt = now
-            });
-        }
-    }
-
-    private static string FormatAmount(long amountMinor) => $"${amountMinor / 100m:N2}";
 }

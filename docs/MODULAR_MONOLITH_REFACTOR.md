@@ -1,6 +1,6 @@
 # Modular monolith refactor guide
 
-Status: accepted target, 2026-10-23; implementation has not begun as part of this documentation update. This guide implements the direction in [ADRs 007–010](ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application). It is an engineering migration sequence, not a replacement for product delivery gates or evidence of completed verification.
+Status: accepted target, 2026-10-23; first implementation wave landed in commits `644aef5` and the current working change. The remaining milestones are not complete. This guide implements the direction in [ADRs 007–010](ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application). It is an engineering migration sequence, not a replacement for product delivery gates or evidence of completed verification.
 
 ## Scope and constraints
 
@@ -15,11 +15,11 @@ The current system uses feature folders, a shared `SenzyDbContext`, direct cross
 | Identity & Access | Credentials, sessions, revocation, access policies | Actor/session operations; current Identity. Other modules do not read credential records. |
 | Profiles | Display names, normalized handles, recipient discoverability | Recipient resolution and profile updates; replace Payments' direct profile queries. |
 | Payments | Payments, requests, transitions, reversals, payment-scoped idempotency | Send/request/accept/reverse; current Payments. Invoke Wallets rather than changing ledger entities. |
-| Wallets | Wallet lifecycle, freezes, spending policies, policy usage | Authorize and execute movements within caller transaction; extract `OutboundPolicy`, wallet controls, and wallet lifecycle orchestration from Operations/Ledger. Future holds need a separate design. |
+| Wallets | Wallet lifecycle, freezes, spending policies, policy usage | `WalletPolicy` and `IWalletMovementService` now own policy checks, deterministic wallet locking, and ledger movement coordination within the caller transaction. Future holds need a separate design. |
 | Ledger | Accounting accounts, journal transactions/entries, balance projections | Create accounts and balanced postings, read authoritative balances; current Ledger behavior and ledger persistence mappings. Only Ledger writes these records. |
 | Funding | Funding workflows, transfer records, funding-scoped idempotency | Cash-in/out; current Funding. Invoke Banking for provider operations and Wallets for movements. |
 | Banking Integrations | Linked sources, provider adapters and provider-facing state | Current Banking and stub adapter. Future callbacks/operations remain out of scope; sandbox provider counterparts must have an explicit owner and remain fixtures. |
-| Notifications | Notification records, event handling, future delivery preferences | Current notification routes plus handlers extracted from `OutboxDispatcher`. |
+| Notifications | Notification records, event handling, future delivery preferences | Current notification routes plus `NotificationEventHandler`; the infrastructure dispatcher owns delivery mechanics. |
 | Reconciliation | Runs, discrepancies, resolution history | Current reconciliation service/worker; consume explicit read contracts from financial modules. Corrections invoke authorized financial workflows. |
 | Activity / Reporting | User-facing read projections and combined history | Current Operations history queries and Activity fixture replacement when approved. Do not silently replace fixture behavior during structural moves. |
 | Host / shared infrastructure | Composition, middleware, database wiring, outbox delivery, telemetry plumbing | `Program.cs` and cross-cutting infrastructure. No financial business rules or catch-all business contracts. |

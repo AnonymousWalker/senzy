@@ -14,10 +14,10 @@ namespace Senzy.Api.Features.Payments;
 
 public sealed class PaymentService(
     SenzyDbContext db,
-    LedgerPostingService ledger,
     TimeProvider clock,
     IPaymentFailureInjector failureInjector,
-    WalletPolicy walletPolicy)
+    IWalletMovementService walletMovement,
+    IRecipientDirectory recipients)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const long MaximumAmountMinor = 1_000_000;
@@ -34,9 +34,9 @@ public sealed class PaymentService(
     {
         ValidateTransfer(request.RecipientHandle, request.AmountMinor, request.Currency, request.Note);
         ValidateIdempotencyKey(idempotencyKey);
-        var recipient = await FindProfileAsync(request.RecipientHandle, ct);
+        var recipient = await recipients.ResolveAsync(request.RecipientHandle, ct);
         if (recipient.UserId == actorId) throw new PaymentCommandException(400, "self_payment", "You cannot send a payment to yourself.");
-        var sender = await RequiredProfileAsync(actorId, ct);
+        var sender = await recipients.RequireAsync(actorId, ct);
         var normalized = request with { RecipientHandle = recipient.Handle, Currency = "USD", Note = NormalizeNote(request.Note) };
         return await PostPaymentAsync(actorId, sender, recipient, normalized.AmountMinor, normalized.Currency, normalized.Note,
             PaymentKind.Send, null, "send", idempotencyKey, Hash(normalized), ct);
@@ -56,8 +56,8 @@ public sealed class PaymentService(
             throw new PaymentCommandException(404, "request_missing", "Payment request not found.");
         if (paymentRequest.Status != PaymentRequestStatus.Pending)
             throw new PaymentCommandException(409, "request_not_pending", "This payment request is no longer pending.");
-        var sender = await RequiredProfileAsync(actorId, ct);
-        var recipient = await RequiredProfileAsync(paymentRequest.RequesterUserId, ct);
+        var sender = await recipients.RequireAsync(actorId, ct);
+        var recipient = await recipients.RequireAsync(paymentRequest.RequesterUserId, ct);
         var response = await AddPostedPaymentAsync(sender, recipient, paymentRequest.AmountMinor, paymentRequest.Currency,
             paymentRequest.Note, PaymentKind.Request, paymentRequest.Id, ct);
         paymentRequest.Status = PaymentRequestStatus.Paid;
@@ -85,26 +85,16 @@ public sealed class PaymentService(
             throw new PaymentCommandException(404, "payment_missing", "Payment not found.");
         if (!PaymentStateMachine.CanTransition(payment.Status, PaymentStatus.Reversed))
             throw new PaymentCommandException(409, "payment_not_reversible", "This payment cannot be reversed.");
-        var accounts = await LockWalletsAsync(payment.SenderUserId, payment.RecipientUserId, ct);
-        var senderWallet = accounts.Single(account => account.OwnerUserId == payment.SenderUserId);
-        var recipientWallet = accounts.Single(account => account.OwnerUserId == payment.RecipientUserId);
-        await walletPolicy.EnsureAllowedAsync(payment.RecipientUserId, payment.AmountMinor, ct);
-        LedgerTransaction reversal;
-        try
-        {
-            reversal = ledger.Post(recipientWallet, senderWallet, payment.AmountMinor, LedgerTransactionKind.Reversal,
-                clock.GetUtcNow(), payment.Id, payment.PostedLedgerTransactionId);
-        }
-        catch (InsufficientFundsException)
-        {
-            throw new PaymentCommandException(409, "reversal_insufficient_funds", "The recipient no longer has enough simulated funds for this reversal.");
-        }
-        db.LedgerTransactions.Add(reversal);
+        var reversal = await walletMovement.MoveAsync(new WalletMovementRequest(
+            payment.RecipientUserId, LedgerAccountPurpose.Wallet,
+            payment.SenderUserId, LedgerAccountPurpose.Wallet,
+            payment.AmountMinor, payment.Currency, LedgerTransactionKind.Reversal,
+            PaymentId: payment.Id, ReversesTransactionId: payment.PostedLedgerTransactionId), ct);
         payment.Status = PaymentStatus.Reversed;
-        payment.ReversalLedgerTransactionId = reversal.Id;
+        payment.ReversalLedgerTransactionId = reversal.LedgerTransactionId;
         payment.ReversedAt = clock.GetUtcNow();
-        var sender = await RequiredProfileAsync(payment.SenderUserId, ct);
-        var recipient = await RequiredProfileAsync(payment.RecipientUserId, ct);
+        var sender = await recipients.RequireAsync(payment.SenderUserId, ct);
+        var recipient = await recipients.RequireAsync(payment.RecipientUserId, ct);
         var response = Map(payment, sender.Handle, recipient.Handle);
         AddOutbox("payment.reversed", payment.Id, new { payment.Id, payment.AmountMinor, payment.Currency, status = "reversed" });
         AddIdempotency(actorId, operation, idempotencyKey, requestHash, response, payment.Id);
@@ -118,9 +108,9 @@ public sealed class PaymentService(
     {
         ValidateTransfer(request.PayerHandle, request.AmountMinor, request.Currency, request.Note);
         ValidateIdempotencyKey(idempotencyKey);
-        var payer = await FindProfileAsync(request.PayerHandle, ct);
+        var payer = await recipients.ResolveAsync(request.PayerHandle, ct);
         if (payer.UserId == actorId) throw new PaymentCommandException(400, "self_request", "You cannot request a payment from yourself.");
-        var requester = await RequiredProfileAsync(actorId, ct);
+        var requester = await recipients.RequireAsync(actorId, ct);
         var normalized = request with { PayerHandle = payer.Handle, Currency = "USD", Note = NormalizeNote(request.Note) };
         const string operation = "request.create";
         var requestHash = Hash(normalized);
@@ -169,7 +159,7 @@ public sealed class PaymentService(
         return new(rows.Select(row => Map(row.request, row.RequesterHandle, row.PayerHandle)).ToList());
     }
 
-    private async Task<PaymentResponse> PostPaymentAsync(Guid actorId, Profile sender, Profile recipient, long amountMinor,
+    private async Task<PaymentResponse> PostPaymentAsync(Guid actorId, RecipientReference sender, RecipientReference recipient, long amountMinor,
         string currency, string note, PaymentKind kind, Guid? paymentRequestId, string operation, string key, string requestHash, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -183,47 +173,24 @@ public sealed class PaymentService(
         return response;
     }
 
-    private async Task<PaymentResponse> AddPostedPaymentAsync(Profile sender, Profile recipient, long amountMinor,
+    private async Task<PaymentResponse> AddPostedPaymentAsync(RecipientReference sender, RecipientReference recipient, long amountMinor,
         string currency, string note, PaymentKind kind, Guid? paymentRequestId, CancellationToken ct)
     {
-        var accounts = await LockWalletsAsync(sender.UserId, recipient.UserId, ct);
-        var senderWallet = accounts.Single(account => account.OwnerUserId == sender.UserId);
-        var recipientWallet = accounts.Single(account => account.OwnerUserId == recipient.UserId);
-        await walletPolicy.EnsureAllowedAsync(sender.UserId, amountMinor, ct);
         var now = clock.GetUtcNow();
         var payment = new Payment
         {
             SenderUserId = sender.UserId, RecipientUserId = recipient.UserId, PaymentRequestId = paymentRequestId,
             Kind = kind, Status = PaymentStatus.Posted, AmountMinor = amountMinor, Currency = currency, Note = note, CreatedAt = now
         };
-        LedgerTransaction posting;
-        try
-        {
-            posting = ledger.Post(senderWallet, recipientWallet, amountMinor, LedgerTransactionKind.Payment, now, payment.Id);
-        }
-        catch (InsufficientFundsException)
-        {
-            throw new PaymentCommandException(409, "insufficient_funds", "Your simulated balance is too low for this payment.");
-        }
-        payment.PostedLedgerTransactionId = posting.Id;
+        var posting = await walletMovement.MoveAsync(new WalletMovementRequest(
+            sender.UserId, LedgerAccountPurpose.Wallet,
+            recipient.UserId, LedgerAccountPurpose.Wallet,
+            amountMinor, currency, LedgerTransactionKind.Payment, PaymentId: payment.Id), ct);
+        payment.PostedLedgerTransactionId = posting.LedgerTransactionId;
         db.Payments.Add(payment);
-        db.LedgerTransactions.Add(posting);
         AddOutbox("payment.posted", payment.Id,
             new { payment.Id, payment.SenderUserId, payment.RecipientUserId, payment.AmountMinor, payment.Currency, status = "posted" });
         return Map(payment, sender.Handle, recipient.Handle);
-    }
-
-    private async Task<List<LedgerAccount>> LockWalletsAsync(Guid firstUserId, Guid secondUserId, CancellationToken ct)
-    {
-        var ids = await db.LedgerAccounts.AsNoTracking()
-            .Where(account => (account.OwnerUserId == firstUserId || account.OwnerUserId == secondUserId) &&
-                              account.Purpose == LedgerAccountPurpose.Wallet && account.Currency == "USD")
-            .Select(account => account.Id).ToListAsync(ct);
-        if (ids.Count != 2) throw new PaymentCommandException(409, "wallet_unavailable", "A simulated wallet is unavailable.");
-        var low = ids.Min();
-        var high = ids.Max();
-        return await db.LedgerAccounts.FromSqlInterpolated(
-            $"""SELECT * FROM "LedgerAccounts" WHERE "Id" IN ({low}, {high}) ORDER BY "Id" FOR UPDATE""").ToListAsync(ct);
     }
 
     private async Task LockIdempotencyScopeAsync(Guid actorId, string operation, string key, CancellationToken ct)
@@ -259,16 +226,6 @@ public sealed class PaymentService(
             Type = type, AggregateId = aggregateId, PayloadJson = JsonSerializer.Serialize(payload, JsonOptions), CreatedAt = clock.GetUtcNow()
         });
     }
-
-    private async Task<Profile> FindProfileAsync(string handle, CancellationToken ct)
-    {
-        var normalized = ProfileRules.NormalizeHandle(handle);
-        return await db.Profiles.AsNoTracking().SingleOrDefaultAsync(profile => profile.Handle == normalized, ct)
-            ?? throw new PaymentCommandException(404, "recipient_missing", "That payment handle was not found.");
-    }
-
-    private async Task<Profile> RequiredProfileAsync(Guid userId, CancellationToken ct) =>
-        await db.Profiles.AsNoTracking().SingleAsync(profile => profile.UserId == userId, ct);
 
     private static void ValidateTransfer(string handle, long amountMinor, string currency, string? note)
     {

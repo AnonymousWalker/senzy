@@ -12,8 +12,8 @@ using Senzy.Api.Infrastructure.Persistence.Models;
 
 namespace Senzy.Api.Features.Funding;
 
-public sealed class FundingService(SenzyDbContext db, IBankingProvider banking, LedgerPostingService ledger,
-    TimeProvider clock, WalletPolicy walletPolicy, IFundingFailureInjector failureInjector)
+public sealed class FundingService(SenzyDbContext db, IBankingProvider banking,
+    TimeProvider clock, IWalletMovementService walletMovement, IFundingFailureInjector failureInjector)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const long MaximumAmountMinor = 1_000_000;
@@ -40,18 +40,6 @@ public sealed class FundingService(SenzyDbContext db, IBankingProvider banking, 
         if (externalAccount.Status != "linked")
             throw new PaymentCommandException(409, "funding_source_unavailable", "That sandbox funding source is unavailable.");
 
-        var accounts = await db.LedgerAccounts.FromSqlInterpolated(
-            $"""SELECT * FROM "LedgerAccounts" WHERE "OwnerUserId" = {actorId} AND "Currency" = 'USD' ORDER BY "Id" FOR UPDATE""")
-            .ToListAsync(ct);
-        var wallet = accounts.SingleOrDefault(account => account.Purpose == LedgerAccountPurpose.Wallet)
-            ?? throw new PaymentCommandException(409, "wallet_unavailable", "Your simulated wallet is unavailable.");
-        var settlement = accounts.SingleOrDefault(account => account.Purpose == LedgerAccountPurpose.SandboxIssuance)
-            ?? throw new PaymentCommandException(409, "wallet_unavailable", "Your simulated settlement account is unavailable.");
-        if (direction == FundingDirection.CashOut)
-        {
-            await walletPolicy.EnsureAllowedAsync(actorId, request.AmountMinor, ct);
-        }
-
         var now = clock.GetUtcNow();
         var transfer = new FundingTransfer
         {
@@ -59,19 +47,16 @@ public sealed class FundingService(SenzyDbContext db, IBankingProvider banking, 
             AmountMinor = request.AmountMinor, Currency = "USD", Provider = externalAccount.Provider,
             ProviderTransferId = $"stub_transfer_{Guid.NewGuid():N}", CreatedAt = now
         };
-        LedgerTransaction posting;
-        try
-        {
-            posting = direction == FundingDirection.CashIn
-                ? ledger.Post(settlement, wallet, transfer.AmountMinor, LedgerTransactionKind.FundingIn, now, fundingTransferId: transfer.Id)
-                : ledger.Post(wallet, settlement, transfer.AmountMinor, LedgerTransactionKind.FundingOut, now, fundingTransferId: transfer.Id);
-        }
-        catch (InsufficientFundsException)
-        {
-            throw new PaymentCommandException(409, "insufficient_funds", "Your simulated balance is too low for this cash-out.");
-        }
-        transfer.LedgerTransactionId = posting.Id;
-        db.LedgerTransactions.Add(posting);
+        var posting = direction == FundingDirection.CashIn
+            ? await walletMovement.MoveAsync(new WalletMovementRequest(
+                actorId, LedgerAccountPurpose.SandboxIssuance, actorId, LedgerAccountPurpose.Wallet,
+                transfer.AmountMinor, transfer.Currency, LedgerTransactionKind.FundingIn,
+                FundingTransferId: transfer.Id, EnforceOutboundPolicy: false), ct)
+            : await walletMovement.MoveAsync(new WalletMovementRequest(
+                actorId, LedgerAccountPurpose.Wallet, actorId, LedgerAccountPurpose.SandboxIssuance,
+                transfer.AmountMinor, transfer.Currency, LedgerTransactionKind.FundingOut,
+                FundingTransferId: transfer.Id), ct);
+        transfer.LedgerTransactionId = posting.LedgerTransactionId;
         db.FundingTransfers.Add(transfer);
         db.SandboxProviderTransfers.Add(new()
         {

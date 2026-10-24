@@ -183,7 +183,7 @@ Module boundaries remain firm even though the process and database are shared:
 
 ## Module ownership — current implementation and target
 
-The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: Payments directly queries profiles and ledger accounts, Funding uses shared persistence, Operations combines policies and reporting, and the outbox dispatcher contains notification handling.
+The current feature directories and service registrations are described above. They are logical boundaries, not yet compile-time isolation: read projections still use shared persistence, Operations combines policies and reporting for compatibility, and the outbox dispatcher now delegates notification behavior to `NotificationEventHandler` while owning delivery mechanics.
 
 The authoritative [target ownership table](../docs/MODULAR_MONOLITH_REFACTOR.md#target-module-ownership) assigns these responsibilities during the refactor. Cross-module writes move behind owner operations; read-only projections require explicit contracts and authorization. The shared database transaction remains intact throughout the migration.
 
@@ -237,7 +237,7 @@ Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL
 | Idempotency record | Unique actor/operation/key, canonical request fingerprint, committed outcome, and related payment ID. |
 | Funding transfer | Actor-owned sandbox account reference, direction, amount/currency, provider transfer reference, posting transaction, and status. |
 | Sandbox provider transfer | Durable simulated external-side record used only to exercise reconciliation. |
-| Outbox message | Stable event ID, event type and payload version, aggregate ID, payload, creation time, lease/retry state, attempt audit, and delivery status. |
+| Outbox message | Immutable event ID, event type/version, aggregate ID, payload, and creation time. Per-consumer delivery state is stored separately with leases, retries, and delivery status. |
 | Notification | Actor-owned projection with a unique user/outbox source pair for idempotent delivery. |
 | Wallet control | Actor-owned freeze state; daily usage is calculated from authoritative posted records. |
 | Reconciliation run | Aggregate mismatch counts, unexplained variance, status, and timestamps. |
@@ -293,7 +293,7 @@ Insufficient funds or invalid state must not leave partial postings. Define whic
 
 `WalletPolicy` owns wallet freeze state and blocks outbound posting while the actor's wallet is frozen. It also caps the sum of posted sends and cash-outs since UTC midnight. Send, accepted-request, reversal, and cash-out paths evaluate that policy after locking the debited wallet, so concurrent commands cannot both pass a stale limit check. The prototype exposes self-service freeze and unfreeze; a real deployment needs privileged support roles and stronger unfreeze/re-authentication policy.
 
-`OutboxWorker` creates a scope per batch and per delivery. `OutboxDispatcher` claims ready rows with a bounded lease and `FOR UPDATE SKIP LOCKED`, records attempts, schedules bounded exponential retries, and marks delivery only after the handler transaction commits. Notification idempotency is database-enforced by the unique `(UserId, SourceOutboxMessageId)` pair. This local consumer establishes delivery semantics before a broker is justified.
+`OutboxWorker` creates a scope per batch and per delivery. `OutboxDispatcher` materializes per-consumer delivery rows, claims ready rows with a bounded lease and `FOR UPDATE SKIP LOCKED`, records attempts, schedules bounded exponential retries, and marks each consumer delivery only after its handler transaction commits. Notification idempotency is database-enforced by the unique `(UserId, SourceOutboxMessageId)` pair. This local consumer establishes at-least-once delivery semantics before a broker is justified.
 
 `ReconciliationWorker` runs daily after startup. The Development-only manual operation uses the same service. Each run compares debit and credit aggregates, ledger-account balance projections, payment postings/reversals, funding postings, and sandbox-provider counterparts, then persists aggregate mismatch counts and unexplained minor-unit variance. The current operations status returns only aggregate reconciliation data and actor-owned policy data; the combined audit history remains actor-private.
 
