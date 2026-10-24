@@ -14,7 +14,7 @@ This document records the current backend architecture and the accepted modular-
 
 Retain one application artifact and one PostgreSQL database. Incrementally enforce module ownership through internal application contracts and useful assembly boundaries. Payments and Funding call Wallets for policy-controlled movements; Wallets calls Ledger for accounting writes. All participate in the initiating workflow's single transaction. Domain behavior must stop depending on infrastructure-owned persistence records as those boundaries are extracted.
 
-Split Operations into Wallets (freezes/limits), Reconciliation (checks/discrepancies), and Reporting (combined history). Profiles exposes recipient resolution; Notifications owns event handlers currently embedded in the outbox dispatcher. The host composes modules and shared mechanisms. Small features may remain compact.
+Split Operations into Wallets (freezes/limits), Reconciliation (checks/discrepancies), and Reporting (combined history). Profiles remains a concrete recipient operation for now; Notifications owns event handlers currently embedded in the outbox dispatcher. The host composes modules and shared mechanisms. Small features may remain compact.
 
 See [ADRs 007–010](../docs/ARCHITECTURE_DECISIONS.md#adr-007--enforceable-module-ownership-within-one-application) for decisions and the [refactor guide](../docs/MODULAR_MONOLITH_REFACTOR.md) for the target diagram, ownership map, assembly/dependency rules, transaction protocol, migration steps, and exit criteria. Replica support, worker roles, failed-delivery replay, and operational controls described there are targets, not current deployment guarantees.
 
