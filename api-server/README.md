@@ -118,9 +118,10 @@ api-server/
       NotificationRoutes.cs
     Operations/
       OperationsRoutes.cs
-      OutboundPolicy.cs
       ReconciliationService.cs
       ReconciliationWorker.cs
+    Wallets/
+      WalletPolicy.cs
     Activity/
       ActivityRoutes.cs
     Configuration/
@@ -290,7 +291,7 @@ Insufficient funds or invalid state must not leave partial postings. Define whic
 
 `Features/Funding/FundingService.cs` uses the actor-owned account selected through `IBankingProvider`, then follows the same command protocol as payments: transaction-scoped idempotency lock, wallet/settlement-account row locks, policy checks under lock, balanced ledger posting, durable response, and outbox event in one commit. Cash-in debits the user's negative-allowed sandbox issuance account and credits the wallet; cash-out does the inverse. A `SandboxProviderTransfer` is the durable simulated external-side record. It is test data, not evidence that a bank transfer settled.
 
-`OutboundPolicy` blocks outbound posting while the actor's wallet is frozen and caps the sum of posted sends and cash-outs since UTC midnight. Send, accepted-request, reversal, and cash-out paths evaluate that policy after locking the debited wallet, so concurrent commands cannot both pass a stale limit check. The prototype exposes self-service freeze and unfreeze; a real deployment needs privileged support roles and stronger unfreeze/re-authentication policy.
+`WalletPolicy` owns wallet freeze state and blocks outbound posting while the actor's wallet is frozen. It also caps the sum of posted sends and cash-outs since UTC midnight. Send, accepted-request, reversal, and cash-out paths evaluate that policy after locking the debited wallet, so concurrent commands cannot both pass a stale limit check. The prototype exposes self-service freeze and unfreeze; a real deployment needs privileged support roles and stronger unfreeze/re-authentication policy.
 
 `OutboxWorker` creates a scope per batch and per delivery. `OutboxDispatcher` claims ready rows with a bounded lease and `FOR UPDATE SKIP LOCKED`, records attempts, schedules bounded exponential retries, and marks delivery only after the handler transaction commits. Notification idempotency is database-enforced by the unique `(UserId, SourceOutboxMessageId)` pair. This local consumer establishes delivery semantics before a broker is justified.
 

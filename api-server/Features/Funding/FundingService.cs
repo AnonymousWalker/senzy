@@ -6,13 +6,14 @@ using Senzy.Api.Common;
 using Senzy.Api.Features.Banking;
 using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Operations;
+using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
 namespace Senzy.Api.Features.Funding;
 
 public sealed class FundingService(SenzyDbContext db, IBankingProvider banking, LedgerPostingService ledger,
-    TimeProvider clock, OutboundPolicy outboundPolicy, IFundingFailureInjector failureInjector)
+    TimeProvider clock, WalletPolicy walletPolicy, IFundingFailureInjector failureInjector)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const long MaximumAmountMinor = 1_000_000;
@@ -48,7 +49,7 @@ public sealed class FundingService(SenzyDbContext db, IBankingProvider banking, 
             ?? throw new PaymentCommandException(409, "wallet_unavailable", "Your simulated settlement account is unavailable.");
         if (direction == FundingDirection.CashOut)
         {
-            await outboundPolicy.EnsureAllowedAsync(actorId, request.AmountMinor, ct);
+            await walletPolicy.EnsureAllowedAsync(actorId, request.AmountMinor, ct);
         }
 
         var now = clock.GetUtcNow();

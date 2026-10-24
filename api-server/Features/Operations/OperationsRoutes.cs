@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Profiles;
+using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
@@ -12,40 +13,26 @@ public static class OperationsRoutes
     public static void MapOperationsRoutes(this WebApplication app)
     {
         var group = app.MapGroup("/v1/operations").RequireAuthorization().RequireRateLimiting("payments").WithTags("Operations");
-        group.MapGet("/status", async (ClaimsPrincipal actor, SenzyDbContext db, OutboundPolicy policy,
+        group.MapGet("/status", async (ClaimsPrincipal actor, WalletPolicy walletPolicy,
             ReconciliationService reconciliation, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
-            var frozen = await db.WalletControls.AsNoTracking().AnyAsync(control => control.UserId == actorId && control.IsFrozen, ct);
-            return Results.Ok(new OperationsStatusResponse(frozen, policy.DailyLimitMinor,
-                await policy.UsedTodayAsync(actorId, ct), "USD", await reconciliation.LatestAsync(ct)));
+            var frozen = await walletPolicy.IsFrozenAsync(actorId, ct);
+            return Results.Ok(new OperationsStatusResponse(frozen, walletPolicy.DailyLimitMinor,
+                await walletPolicy.UsedTodayAsync(actorId, ct), "USD", await reconciliation.LatestAsync(ct)));
         }).WithName("GetOperationsStatus").Produces<OperationsStatusResponse>();
 
-        group.MapPost("/freeze", async (ClaimsPrincipal actor, SenzyDbContext db, TimeProvider clock, CancellationToken ct) =>
+        group.MapPost("/freeze", async (ClaimsPrincipal actor, WalletPolicy walletPolicy, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
-            var control = await db.WalletControls.SingleOrDefaultAsync(value => value.UserId == actorId, ct);
-            if (control is null)
-            {
-                control = new WalletControl { UserId = actorId };
-                db.WalletControls.Add(control);
-            }
-            control.IsFrozen = true;
-            control.UpdatedAt = clock.GetUtcNow();
-            await db.SaveChangesAsync(ct);
+            await walletPolicy.SetFrozenAsync(actorId, true, ct);
             return Results.NoContent();
         }).WithName("FreezeWallet").Produces(204);
 
-        group.MapPost("/unfreeze", async (ClaimsPrincipal actor, SenzyDbContext db, TimeProvider clock, CancellationToken ct) =>
+        group.MapPost("/unfreeze", async (ClaimsPrincipal actor, WalletPolicy walletPolicy, CancellationToken ct) =>
         {
             var actorId = ProfileRoutes.ActorId(actor);
-            var control = await db.WalletControls.SingleOrDefaultAsync(value => value.UserId == actorId, ct);
-            if (control is not null)
-            {
-                control.IsFrozen = false;
-                control.UpdatedAt = clock.GetUtcNow();
-                await db.SaveChangesAsync(ct);
-            }
+            await walletPolicy.SetFrozenAsync(actorId, false, ct);
             return Results.NoContent();
         }).WithName("UnfreezeWallet").Produces(204);
 

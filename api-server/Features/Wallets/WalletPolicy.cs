@@ -3,11 +3,18 @@ using Senzy.Api.Common;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 
-namespace Senzy.Api.Features.Operations;
+namespace Senzy.Api.Features.Wallets;
 
-public sealed class OutboundPolicy(SenzyDbContext db, TimeProvider clock, IConfiguration configuration)
+/// <summary>
+/// Owns wallet controls and outbound movement policy while participating in the
+/// caller's PostgreSQL transaction. The service never commits independently.
+/// </summary>
+public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfiguration configuration)
 {
     public long DailyLimitMinor => configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L);
+
+    public async Task<bool> IsFrozenAsync(Guid actorId, CancellationToken ct) =>
+        await db.WalletControls.AsNoTracking().AnyAsync(control => control.UserId == actorId && control.IsFrozen, ct);
 
     public async Task<long> UsedTodayAsync(Guid actorId, CancellationToken ct)
     {
@@ -24,9 +31,22 @@ public sealed class OutboundPolicy(SenzyDbContext db, TimeProvider clock, IConfi
 
     public async Task EnsureAllowedAsync(Guid actorId, long amountMinor, CancellationToken ct)
     {
-        if (await db.WalletControls.AsNoTracking().AnyAsync(control => control.UserId == actorId && control.IsFrozen, ct))
+        if (await IsFrozenAsync(actorId, ct))
             throw new PaymentCommandException(409, "wallet_frozen", "Your wallet is frozen. Unfreeze it before moving money out.");
         if (amountMinor > DailyLimitMinor - await UsedTodayAsync(actorId, ct))
             throw new PaymentCommandException(409, "daily_limit_exceeded", "This transaction would exceed your simulated daily outbound limit.");
+    }
+
+    public async Task SetFrozenAsync(Guid actorId, bool frozen, CancellationToken ct)
+    {
+        var control = await db.WalletControls.SingleOrDefaultAsync(value => value.UserId == actorId, ct);
+        if (control is null)
+        {
+            control = new WalletControl { UserId = actorId };
+            db.WalletControls.Add(control);
+        }
+        control.IsFrozen = frozen;
+        control.UpdatedAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
     }
 }
