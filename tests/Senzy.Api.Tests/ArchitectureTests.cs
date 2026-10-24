@@ -17,7 +17,6 @@ public sealed class ArchitectureTests
             .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
         Assert.Contains(typeof(IWalletMovementService), parameterTypes);
-        Assert.Contains(typeof(IRecipientDirectory), parameterTypes);
         Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
         Assert.DoesNotContain(typeof(WalletPolicy), parameterTypes);
     }
@@ -29,6 +28,16 @@ public sealed class ArchitectureTests
             .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
         Assert.Contains(typeof(IWalletMovementService), parameterTypes);
+        Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
+    }
+
+    [Fact]
+    public void WalletMovementUsesLedgerContract()
+    {
+        var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
+            .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+
+        Assert.Contains(typeof(ILedgerPostingService), parameterTypes);
         Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
     }
 

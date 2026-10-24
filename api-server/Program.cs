@@ -84,13 +84,14 @@ if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
     protection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
 builder.Services.AddScoped<ISessionValidator, SessionValidator>();
 builder.Services.AddScoped<LedgerPostingService>();
+builder.Services.AddScoped<ILedgerPostingService>(services => services.GetRequiredService<LedgerPostingService>());
 builder.Services.AddScoped<SandboxWalletService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<FundingService>();
 builder.Services.AddScoped<WalletPolicy>();
 builder.Services.AddScoped<IWalletPolicy>(services => services.GetRequiredService<WalletPolicy>());
 builder.Services.AddScoped<IWalletMovementService, WalletMovementService>();
-builder.Services.AddScoped<IRecipientDirectory, RecipientDirectory>();
+builder.Services.AddScoped<RecipientDirectory>();
 builder.Services.AddScoped<ReconciliationService>();
 builder.Services.AddScoped<TransactionHistoryService>();
 builder.Services.AddScoped<OutboxDispatcher>();

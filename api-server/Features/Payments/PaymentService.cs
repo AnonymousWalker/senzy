@@ -17,7 +17,7 @@ public sealed class PaymentService(
     TimeProvider clock,
     IPaymentFailureInjector failureInjector,
     IWalletMovementService walletMovement,
-    IRecipientDirectory recipients)
+    RecipientDirectory recipients)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const long MaximumAmountMinor = 1_000_000;
@@ -86,9 +86,9 @@ public sealed class PaymentService(
         if (!PaymentStateMachine.CanTransition(payment.Status, PaymentStatus.Reversed))
             throw new PaymentCommandException(409, "payment_not_reversible", "This payment cannot be reversed.");
         var reversal = await walletMovement.MoveAsync(new WalletMovementRequest(
-            payment.RecipientUserId, LedgerAccountPurpose.Wallet,
-            payment.SenderUserId, LedgerAccountPurpose.Wallet,
-            payment.AmountMinor, payment.Currency, LedgerTransactionKind.Reversal,
+            payment.RecipientUserId, LedgerAccountRole.Wallet,
+            payment.SenderUserId, LedgerAccountRole.Wallet,
+            payment.AmountMinor, payment.Currency, LedgerMovementKind.Reversal,
             PaymentId: payment.Id, ReversesTransactionId: payment.PostedLedgerTransactionId), ct);
         payment.Status = PaymentStatus.Reversed;
         payment.ReversalLedgerTransactionId = reversal.LedgerTransactionId;
@@ -183,9 +183,9 @@ public sealed class PaymentService(
             Kind = kind, Status = PaymentStatus.Posted, AmountMinor = amountMinor, Currency = currency, Note = note, CreatedAt = now
         };
         var posting = await walletMovement.MoveAsync(new WalletMovementRequest(
-            sender.UserId, LedgerAccountPurpose.Wallet,
-            recipient.UserId, LedgerAccountPurpose.Wallet,
-            amountMinor, currency, LedgerTransactionKind.Payment, PaymentId: payment.Id), ct);
+            sender.UserId, LedgerAccountRole.Wallet,
+            recipient.UserId, LedgerAccountRole.Wallet,
+            amountMinor, currency, LedgerMovementKind.Payment, PaymentId: payment.Id), ct);
         payment.PostedLedgerTransactionId = posting.LedgerTransactionId;
         db.Payments.Add(payment);
         AddOutbox("payment.posted", payment.Id,

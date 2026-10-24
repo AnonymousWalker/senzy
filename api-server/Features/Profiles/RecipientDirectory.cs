@@ -6,13 +6,7 @@ namespace Senzy.Api.Features.Profiles;
 
 public sealed record RecipientReference(Guid UserId, string Handle);
 
-public interface IRecipientDirectory
-{
-    Task<RecipientReference> ResolveAsync(string handle, CancellationToken ct);
-    Task<RecipientReference> RequireAsync(Guid userId, CancellationToken ct);
-}
-
-public sealed class RecipientDirectory(SenzyDbContext db) : IRecipientDirectory
+public sealed class RecipientDirectory(SenzyDbContext db)
 {
     public async Task<RecipientReference> ResolveAsync(string handle, CancellationToken ct)
     {

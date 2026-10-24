@@ -49,12 +49,12 @@ public sealed class FundingService(SenzyDbContext db, IBankingProvider banking,
         };
         var posting = direction == FundingDirection.CashIn
             ? await walletMovement.MoveAsync(new WalletMovementRequest(
-                actorId, LedgerAccountPurpose.SandboxIssuance, actorId, LedgerAccountPurpose.Wallet,
-                transfer.AmountMinor, transfer.Currency, LedgerTransactionKind.FundingIn,
+                actorId, LedgerAccountRole.SandboxSettlement, actorId, LedgerAccountRole.Wallet,
+                transfer.AmountMinor, transfer.Currency, LedgerMovementKind.FundingIn,
                 FundingTransferId: transfer.Id, EnforceOutboundPolicy: false), ct)
             : await walletMovement.MoveAsync(new WalletMovementRequest(
-                actorId, LedgerAccountPurpose.Wallet, actorId, LedgerAccountPurpose.SandboxIssuance,
-                transfer.AmountMinor, transfer.Currency, LedgerTransactionKind.FundingOut,
+                actorId, LedgerAccountRole.Wallet, actorId, LedgerAccountRole.SandboxSettlement,
+                transfer.AmountMinor, transfer.Currency, LedgerMovementKind.FundingOut,
                 FundingTransferId: transfer.Id), ct);
         transfer.LedgerTransactionId = posting.LedgerTransactionId;
         db.FundingTransfers.Add(transfer);

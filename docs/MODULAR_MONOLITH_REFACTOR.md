@@ -13,10 +13,10 @@ The current system uses feature folders, a shared `SenzyDbContext`, direct cross
 | Module | Owns | Public application surface / current code to move |
 | --- | --- | --- |
 | Identity & Access | Credentials, sessions, revocation, access policies | Actor/session operations; current Identity. Other modules do not read credential records. |
-| Profiles | Display names, normalized handles, recipient discoverability | Recipient resolution and profile updates; replace Payments' direct profile queries. |
+| Profiles | Display names, normalized handles, recipient discoverability | Concrete recipient/profile operation for now; promote to a contract only if recipient resolution becomes an independently scaled capability. |
 | Payments | Payments, requests, transitions, reversals, payment-scoped idempotency | Send/request/accept/reverse; current Payments. Invoke Wallets rather than changing ledger entities. |
 | Wallets | Wallet lifecycle, freezes, spending policies, policy usage | `WalletPolicy` and `IWalletMovementService` now own policy checks, deterministic wallet locking, and ledger movement coordination within the caller transaction. Future holds need a separate design. |
-| Ledger | Accounting accounts, journal transactions/entries, balance projections | Create accounts and balanced postings, read authoritative balances; current Ledger behavior and ledger persistence mappings. Only Ledger writes these records. |
+| Ledger | Accounting accounts, journal transactions/entries, balance projections | `ILedgerPostingService` owns the posting boundary; Ledger creates accounts and balanced postings, reads authoritative balances, and keeps persistence mappings private. |
 | Funding | Funding workflows, transfer records, funding-scoped idempotency | Cash-in/out; current Funding. Invoke Banking for provider operations and Wallets for movements. |
 | Banking Integrations | Linked sources, provider adapters and provider-facing state | Current Banking and stub adapter. Future callbacks/operations remain out of scope; sandbox provider counterparts must have an explicit owner and remain fixtures. |
 | Notifications | Notification records, event handling, future delivery preferences | Current notification routes plus `NotificationEventHandler`; the infrastructure dispatcher owns delivery mechanics. |
@@ -72,7 +72,7 @@ Senzy.Infrastructure              Shared runtime mechanisms only
 
 Within a non-trivial module, use API, Application, Domain, and Infrastructure areas. Do not create empty layers for small features. Expose named commands/results, focused application interfaces, and registration entry points. Keep implementation types and persistence records internal. Do not expose `DbSet`, `IQueryable`, tracked entities, HTTP DTOs, or provider SDK objects through cross-module contracts.
 
-The application-level call direction is Payments/Funding → Wallets → Ledger; Payments → Profiles; Funding → Banking. Reconciliation and Reporting use explicit read contracts or owned projections. If contract-only assemblies are needed to prevent reference cycles, keep them small and module-owned. The host wires implementations; modules must not reference the host. Module infrastructure can implement narrow application persistence ports where needed without adding a generic repository abstraction.
+The application-level call direction is Payments/Funding → Wallets → Ledger; Payments → concrete Profiles operation; Funding → Banking. Reconciliation and Reporting remain concrete read-side services until scale or extraction requirements justify contracts. If contract-only assemblies are needed to prevent reference cycles, keep them small and module-owned. The host wires implementations; modules must not reference the host. Module infrastructure can implement narrow application persistence ports where needed without adding a generic repository abstraction.
 
 Retain shared persistence initially. As assemblies are introduced, module-owned EF mapping registration must not require making all entities public. If that cannot be achieved with the existing context shape, design and verify coordinated contexts before moving the boundary; do not use circular project references or broad friend-assembly access as the permanent solution.
 
