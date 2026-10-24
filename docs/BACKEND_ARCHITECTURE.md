@@ -21,46 +21,26 @@ The current implementation is simulated money only. Banking is a Development-onl
 ## System shape
 
 ```mermaid
-flowchart TB
-    Clients[Web / mobile clients] --> Host[ASP.NET Core API host]
-
-    subgraph HTTP[HTTP feature surface]
-        direction LR
-        Host --> Payments[Payments]
-        Host --> Funding[Funding]
-        Host --> Operations[Operations compatibility routes]
-        Host --> Identity[Identity & access]
-    end
-
-    subgraph COMMANDS[Synchronous module calls]
-        direction LR
-        Payments --> Profiles[Profiles]
-        Payments --> Wallets[Wallets]
-        Funding --> Wallets
-        Funding --> Banking[Banking integrations]
-        Wallets --> Ledger[Ledger]
-    end
-
-    subgraph COMMIT[One caller-owned PostgreSQL transaction]
-        direction LR
-        Payments --> Tx[Atomic commit]
-        Funding --> Tx
-        Wallets --> Tx
-        Ledger --> Tx
-        Tx --> DB[(PostgreSQL)]
-    end
-
-    DB --> Outbox[Per-consumer outbox delivery]
-    Outbox --> Notifications[Notifications]
-    Operations --> Reconciliation[Reconciliation]
-    Operations --> Reporting[Reporting / activity]
-
-    classDef host fill:#e8f1ff,stroke:#3267a8,stroke-width:2px;
-    classDef critical fill:#fff1d6,stroke:#b36b00,stroke-width:1px;
-    classDef storage fill:#e9f7ef,stroke:#2f855a,stroke-width:2px;
-    class Host host;
-    class Payments,Funding,Wallets,Ledger,Tx critical;
-    class DB storage;
+flowchart TD
+    Host[API host] --> Payments
+    Host --> Funding
+    Host --> Profiles
+    Host --> Identity[Identity and Access]
+    Host --> Reads[Notifications and Reporting]
+    Payments --> Profiles
+    Payments --> Wallets
+    Funding --> Banking[Banking Integrations]
+    Funding --> Wallets
+    Wallets --> Ledger
+    Payments --> Tx[Shared PostgreSQL transaction]
+    Funding --> Tx
+    Wallets --> Tx
+    Ledger --> Tx
+    Tx --> DB[(One PostgreSQL database)]
+    DB --> Outbox[Outbox delivery after commit]
+    Outbox --> Reads
+    Reconciliation --> Contracts[Financial module read contracts]
+    Contracts --> DB
 ```
 
 The current application runs all modules and hosted workers in one process. PostgreSQL is authoritative for identities, payments, funding, balances, ledger entries, idempotency, outbox events, notifications, wallet controls, and reconciliation runs.
