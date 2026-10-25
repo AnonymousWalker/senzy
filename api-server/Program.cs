@@ -50,8 +50,10 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 }
 
 builder.Services.AddDbContext<SenzyDbContext>(options =>
-    options.UseNpgsql(connectionString ??
-        "Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy"));
+    options.UseNpgsql(
+        connectionString ??
+            "Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy",
+        npgsql => npgsql.MigrationsAssembly(typeof(SenzyDbContext).Assembly.GetName().Name)));
 builder.Services.AddScoped<ITransactionContext, EfTransactionContext>();
 
 builder.Services.AddIdentityApiEndpoints<ApplicationUser>(options =>

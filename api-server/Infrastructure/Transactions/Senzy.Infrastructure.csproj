@@ -4,4 +4,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Persistence/SenzyDbContext.cs" />
+    <Compile Include="../Persistence/OperationalModels.cs" />
+    <Compile Include="../Persistence/Models/**/*.cs" />
+    <Compile Include="../Persistence/WalletPolicyStore.cs" />
+    <Compile Include="../Persistence/WalletMovementStore.cs" />
+    <Compile Include="../Persistence/LedgerPostingStore.cs" />
+    <Compile Include="../Persistence/EfTransactionContext.cs" />
+    <Compile Include="../Persistence/Migrations/**/*.cs" />
+    <ProjectReference Include="../../Modules/Ledger/Senzy.Modules.Ledger.csproj" />
+    <ProjectReference Include="../../Modules/Wallets/Senzy.Modules.Wallets.csproj" />
+    <ProjectReference Include="../../Modules/Payments/Senzy.Modules.Payments.csproj" />
+    <ProjectReference Include="../../Modules/Funding/Senzy.Modules.Funding.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
 </Project>

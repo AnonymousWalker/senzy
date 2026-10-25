@@ -10,6 +10,15 @@
     <Compile Remove="Modules\**\*.cs" />
     <None Include="Modules\**\*.cs" />
     <Compile Remove="Infrastructure\Transactions\**\*.cs" />
+    <Compile Remove="Infrastructure\Persistence\SenzyDbContext.cs" />
+    <Compile Remove="Infrastructure\Persistence\OperationalModels.cs" />
+    <Compile Remove="Infrastructure\Persistence\Models\**\*.cs" />
+    <Compile Remove="Infrastructure\Persistence\WalletPolicyStore.cs" />
+    <Compile Remove="Infrastructure\Persistence\WalletMovementStore.cs" />
+    <Compile Remove="Infrastructure\Persistence\LedgerPostingStore.cs" />
+    <Compile Remove="Infrastructure\Persistence\EfTransactionContext.cs" />
+    <Compile Remove="Infrastructure\Persistence\Migrations\**\*.cs" />
+    <Compile Remove="Features\Identity\ApplicationUser.cs" />
     <None Include="Infrastructure\Transactions\**\*.cs" />
     <ProjectReference Include="Modules\Ledger\Senzy.Modules.Ledger.csproj" />
     <ProjectReference Include="Modules\Wallets\Senzy.Modules.Wallets.csproj" />

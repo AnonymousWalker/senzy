@@ -5,7 +5,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="../../Infrastructure/Transactions/Senzy.Infrastructure.csproj" />
-  </ItemGroup>
 </Project>
