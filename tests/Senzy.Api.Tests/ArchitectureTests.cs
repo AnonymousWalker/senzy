@@ -40,7 +40,7 @@ public sealed class ArchitectureTests
   [Fact]
   public void WalletMovementUsesLedgerContract()
   {
-    var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
+    var parameterTypes = typeof(WalletMovementCoordinator).GetConstructors().Single()
         .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
     Assert.Contains(typeof(ILedgerPostingService), parameterTypes);
@@ -127,7 +127,7 @@ public sealed class ArchitectureTests
   [Fact]
   public void WalletMovementUsesPersistenceContract()
   {
-    var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
+    var parameterTypes = typeof(WalletMovementCoordinator).GetConstructors().Single()
         .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
     Assert.Contains(typeof(IWalletMovementStore), parameterTypes);

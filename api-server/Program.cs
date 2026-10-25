@@ -120,6 +120,7 @@ builder.Services.AddScoped<IWalletMovementStore, WalletMovementStore>();
 builder.Services.AddSingleton<WalletPolicyEngine>();
 builder.Services.AddScoped<IWalletPolicy>(services => services.GetRequiredService<WalletPolicy>());
 builder.Services.AddScoped<IWalletMovementService, WalletMovementService>();
+builder.Services.AddScoped<WalletMovementCoordinator>();
 builder.Services.AddScoped<RecipientDirectory>();
 builder.Services.AddScoped<ReconciliationService>();
 builder.Services.AddScoped<TransactionHistoryService>();
