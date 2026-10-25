@@ -1,11 +1,12 @@
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Modules.Ledger;
 
 namespace Senzy.Api.Features.Ledger;
 
 public sealed class SandboxWalletService(
     SenzyDbContext db,
-    LedgerPostingService ledger,
+    ILedgerPostingService ledger,
     TimeProvider clock,
     IConfiguration configuration)
 {
@@ -39,6 +40,12 @@ public sealed class SandboxWalletService(
     };
 
     db.LedgerAccounts.AddRange(source, wallet);
-    db.LedgerTransactions.Add(ledger.Post(source, wallet, amount, LedgerTransactionKind.SandboxOpeningBalance, now));
+    ledger.Post(new LedgerPostingRequest(
+        source.Id,
+        wallet.Id,
+        amount,
+        Currency,
+        LedgerMovementKind.SandboxOpeningBalance,
+        now));
   }
 }

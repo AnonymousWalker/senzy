@@ -108,9 +108,9 @@ if (builder.Configuration["DataProtection:KeyPath"] is { Length: > 0 } keyPath)
 }
 
 builder.Services.AddScoped<ISessionValidator, SessionValidator>();
-builder.Services.AddScoped<LedgerPostingService>();
 builder.Services.AddScoped<ILedgerPostingStore, LedgerPostingStore>();
-builder.Services.AddScoped<ILedgerPostingService>(services => services.GetRequiredService<LedgerPostingService>());
+builder.Services.AddScoped<LedgerPostingEngine>();
+builder.Services.AddScoped<ILedgerPostingService, LedgerPostingService>();
 builder.Services.AddScoped<SandboxWalletService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<FundingService>();

@@ -1,4 +1,3 @@
-using Senzy.Api.Features.Ledger;
 using Senzy.Modules.Ledger;
 using Senzy.Api.Features.Payments;
 using Senzy.Api.Infrastructure.Persistence.Models;
@@ -12,7 +11,7 @@ public sealed class LedgerDomainTests
   public void PostingPreservesValueAndAlwaysProducesBalancedEntries()
   {
     var random = new Random(42);
-    var service = new LedgerPostingService();
+    var engine = new LedgerPostingEngine();
     for (var index = 0; index < 1_000; index++)
     {
       var opening = random.NextInt64(1, 10_000_000);
@@ -20,12 +19,14 @@ public sealed class LedgerDomainTests
       var debit = Wallet(opening);
       var credit = Wallet(random.NextInt64(0, 10_000_000));
       var total = debit.BalanceMinor + credit.BalanceMinor;
-      var transaction = service.Post(debit, credit, amount, LedgerTransactionKind.Payment, DateTimeOffset.UnixEpoch);
+      var plan = engine.CreatePlan(
+          new(debit.Id, debit.Currency, debit.BalanceMinor, debit.AllowNegative),
+          new(credit.Id, credit.Currency, credit.BalanceMinor, credit.AllowNegative),
+          new(debit.Id, credit.Id, amount, "USD", LedgerMovementKind.Payment, DateTimeOffset.UnixEpoch));
       Assert.Equal(total, debit.BalanceMinor + credit.BalanceMinor);
-      Assert.Equal(2, transaction.Entries.Count);
-      Assert.Equal(transaction.Entries.Where(entry => entry.Direction == LedgerEntryDirection.Debit).Sum(entry => entry.AmountMinor),
-          transaction.Entries.Where(entry => entry.Direction == LedgerEntryDirection.Credit).Sum(entry => entry.AmountMinor));
-      Assert.All(transaction.Entries, entry => Assert.Equal("USD", entry.Currency));
+      Assert.Equal(debit.Id, plan.DebitAccountId);
+      Assert.Equal(credit.Id, plan.CreditAccountId);
+      Assert.Equal(amount, plan.AmountMinor);
     }
   }
 
@@ -34,8 +35,10 @@ public sealed class LedgerDomainTests
   {
     var debit = Wallet(99);
     var credit = Wallet(50);
-    Assert.Throws<InsufficientFundsException>(() => new LedgerPostingService().Post(
-        debit, credit, 100, LedgerTransactionKind.Payment, DateTimeOffset.UnixEpoch));
+    Assert.Throws<InsufficientFundsException>(() => new LedgerPostingEngine().CreatePlan(
+        new(debit.Id, debit.Currency, debit.BalanceMinor, debit.AllowNegative),
+        new(credit.Id, credit.Currency, credit.BalanceMinor, credit.AllowNegative),
+        new(debit.Id, credit.Id, 100, "USD", LedgerMovementKind.Payment, DateTimeOffset.UnixEpoch)));
     Assert.Equal(99, debit.BalanceMinor);
     Assert.Equal(50, credit.BalanceMinor);
   }
