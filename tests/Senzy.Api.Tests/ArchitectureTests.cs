@@ -1,5 +1,4 @@
 using Senzy.Api.Features.Ledger;
-using Senzy.Api.Features.Wallets;
 using Senzy.Api.Features.Funding;
 using Senzy.Infrastructure.Banking;
 using Senzy.Api.Features.Profiles;

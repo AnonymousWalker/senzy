@@ -33,7 +33,7 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - [x] Move Wallet freeze and daily-limit decisions into `Senzy.Modules.Wallets`.
 - [x] Add Wallets-owned persistence adapters for account lookup, locking, controls, balance reads, and movement persistence.
 - [x] Add Ledger-owned persistence adapters for accounts, postings, entries, and balance projections.
-- [ ] Move Wallets and Ledger implementations out of `Senzy.Api`.
+- [x] Move Wallets and Ledger implementations out of `Senzy.Api`.
 - [ ] Verify one PostgreSQL transaction across Payments/Funding, Wallets, Ledger, idempotency, and outbox.
 
 ## Payments and Funding assemblies
@@ -95,7 +95,7 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 
 - **Step 1:** Partially complete. Wallet policy and wallet account lookup/locking are behind `IWalletPolicyStore` and `IWalletMovementStore`; movement persistence remains coupled to Ledger's shared transaction adapter.
 - **Step 2:** Complete for the current slice. Ledger posting uses `ILedgerPostingStore` and the EF adapter remains in infrastructure.
-- **Step 3:** Partially complete. Ledger implementation and Wallets movement coordination are in their module assemblies; thin host adapters remain for EF transaction integration and HTTP error translation.
+- **Step 3:** Complete for the current assembly slice. Ledger posting, Wallets policy, and Wallets movement coordination are in their module assemblies; the host retains only the sandbox opening-balance adapter and HTTP error translation.
 - **Infrastructure unblock:** `Senzy.Infrastructure` now exposes `ITransactionContext`; the host provides the EF/PostgreSQL implementation. Payments and Funding can depend on the transaction contract without referencing `Senzy.Api`.
 - **Infrastructure extraction:** EF persistence models, `SenzyDbContext`, migrations, transaction adapter, Wallets/Ledger stores, and the sandbox banking provider now compile in `Senzy.Infrastructure`; API remains the composition root and retains only host-specific Outbox mechanics.
 - **Provider adapter extraction:** The sandbox banking contract and provider now compile in `Senzy.Infrastructure`; the API retains only the `/v1` route composition surface.

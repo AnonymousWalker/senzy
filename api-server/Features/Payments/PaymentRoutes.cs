@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Profiles;
 using Senzy.Modules.Payments;
+using Senzy.Modules.Wallets;
 
 namespace Senzy.Api.Features.Payments;
 
@@ -145,6 +146,14 @@ public static class PaymentRoutes
       return Results.Ok(await action());
     }
     catch (Senzy.Modules.Payments.PaymentCommandException error)
+    {
+      return ApiErrors.Problem(error.Status, error.Code, error.Message);
+    }
+    catch (WalletMovementFailureException error)
+    {
+      return ApiErrors.Problem(error.Status, error.Code, error.Message);
+    }
+    catch (WalletPolicyFailureException error)
     {
       return ApiErrors.Problem(error.Status, error.Code, error.Message);
     }

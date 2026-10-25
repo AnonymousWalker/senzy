@@ -27,7 +27,6 @@ using Senzy.Api.Features.Notifications;
 using Senzy.Api.Features.Operations;
 using Senzy.Api.Features.Reconciliation;
 using Senzy.Api.Features.Reporting;
-using Senzy.Api.Features.Wallets;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
 using Senzy.Api.Infrastructure.Outbox;
@@ -120,7 +119,11 @@ builder.Services.AddScoped<ILedgerPostingService, LedgerPostingService>();
 builder.Services.AddScoped<SandboxWalletService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<FundingService>();
-builder.Services.AddScoped<WalletPolicy>();
+builder.Services.AddScoped<WalletPolicy>(services => new WalletPolicy(
+    services.GetRequiredService<IWalletPolicyStore>(),
+    services.GetRequiredService<TimeProvider>(),
+    services.GetRequiredService<WalletPolicyEngine>(),
+    builder.Configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L)));
 builder.Services.AddScoped<IWalletPolicyStore, WalletPolicyStore>();
 builder.Services.AddScoped<IWalletBalanceReader, WalletBalanceStore>();
 builder.Services.AddScoped<IWalletMovementStore, WalletMovementStore>();

@@ -1,11 +1,13 @@
-using Microsoft.EntityFrameworkCore;
-using Senzy.Api.Common;
-using Senzy.Api.Infrastructure.Persistence;
-using Senzy.Api.Infrastructure.Persistence.Models;
-using Senzy.Modules.Ledger;
-using Senzy.Modules.Wallets;
+namespace Senzy.Modules.Wallets;
 
-namespace Senzy.Api.Features.Wallets;
+public sealed class WalletPolicyFailureException(
+    int status,
+    string code,
+    string message) : Exception(message)
+{
+  public int Status { get; } = status;
+  public string Code { get; } = code;
+}
 
 /// <summary>
 /// Owns wallet controls and outbound movement policy while participating in the
@@ -14,10 +16,10 @@ namespace Senzy.Api.Features.Wallets;
 public sealed class WalletPolicy(
     IWalletPolicyStore store,
     TimeProvider clock,
-    IConfiguration configuration,
-    WalletPolicyEngine engine) : IWalletPolicy
+    WalletPolicyEngine engine,
+    long dailyLimitMinor) : IWalletPolicy
 {
-  public long DailyLimitMinor => configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L);
+  public long DailyLimitMinor => dailyLimitMinor;
 
   public async Task<bool> IsFrozenAsync(Guid actorId, CancellationToken ct) =>
       await store.IsFrozenAsync(actorId, ct);
@@ -40,14 +42,14 @@ public sealed class WalletPolicy(
     }
     catch (WalletFrozenException)
     {
-      throw new PaymentCommandException(
+      throw new WalletPolicyFailureException(
           409,
           "wallet_frozen",
           "Your wallet is frozen. Unfreeze it before moving money out.");
     }
     catch (DailyLimitExceededException)
     {
-      throw new PaymentCommandException(
+      throw new WalletPolicyFailureException(
           409,
           "daily_limit_exceeded",
           "This transaction would exceed your simulated daily outbound limit.");
@@ -69,12 +71,9 @@ public sealed class WalletMovementService(
     {
       return await coordinator.MoveAsync(request, ct);
     }
-    catch (WalletMovementFailureException error)
+    catch (WalletMovementFailureException)
     {
-      throw new PaymentCommandException(
-          error.Status,
-          error.Code,
-          error.Message);
+      throw;
     }
   }
 }
