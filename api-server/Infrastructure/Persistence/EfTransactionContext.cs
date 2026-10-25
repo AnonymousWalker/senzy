@@ -5,27 +5,23 @@ namespace Senzy.Api.Infrastructure.Persistence;
 
 public sealed class EfTransactionContext(SenzyDbContext db) : ITransactionContext
 {
-  public async Task BeginAsync(CancellationToken ct)
+  public async Task<ITransactionScope> BeginAsync(CancellationToken ct)
   {
-    if (db.Database.CurrentTransaction is null)
+    if (db.Database.CurrentTransaction is not null)
     {
-      await db.Database.BeginTransactionAsync(ct);
+      throw new InvalidOperationException("A transaction is already active.");
     }
+
+    return new EfTransactionScope(await db.Database.BeginTransactionAsync(ct));
   }
 
-  public async Task CommitAsync(CancellationToken ct)
+  private sealed class EfTransactionScope(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction)
+      : ITransactionScope
   {
-    var transaction = db.Database.CurrentTransaction
-        ?? throw new InvalidOperationException("No transaction is active.");
+    public Task CommitAsync(CancellationToken ct) => transaction.CommitAsync(ct);
 
-    await transaction.CommitAsync(ct);
-  }
+    public Task RollbackAsync(CancellationToken ct) => transaction.RollbackAsync(ct);
 
-  public async Task RollbackAsync(CancellationToken ct)
-  {
-    var transaction = db.Database.CurrentTransaction
-        ?? throw new InvalidOperationException("No transaction is active.");
-
-    await transaction.RollbackAsync(ct);
+    public ValueTask DisposeAsync() => transaction.DisposeAsync();
   }
 }

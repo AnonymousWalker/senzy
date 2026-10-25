@@ -11,12 +11,14 @@ using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
 using Senzy.Modules.Payments;
+using Senzy.Infrastructure.Transactions;
 
 namespace Senzy.Api.Features.Payments;
 
 public sealed class PaymentService(
     SenzyDbContext db,
     TimeProvider clock,
+    ITransactionContext transactions,
     IPaymentFailureInjector failureInjector,
     IWalletMovementService walletMovement,
     RecipientDirectory recipients)
@@ -89,7 +91,7 @@ public sealed class PaymentService(
     var operation = $"request.accept:{requestId}";
     var requestHash = Hash(new { requestId });
 
-    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+    await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
     if (await ReplayAsync<PaymentResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
@@ -150,7 +152,7 @@ public sealed class PaymentService(
     var operation = $"payment.reverse:{paymentId}";
     var requestHash = Hash(new { paymentId });
 
-    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+    await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
     if (await ReplayAsync<PaymentResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
@@ -231,7 +233,7 @@ public sealed class PaymentService(
     const string operation = "request.create";
     var requestHash = Hash(normalized);
 
-    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+    await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
     if (await ReplayAsync<PaymentRequestResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
@@ -321,7 +323,7 @@ public sealed class PaymentService(
       string requestHash,
       CancellationToken ct)
   {
-    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+    await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, key, ct);
 
     if (await ReplayAsync<PaymentResponse>(actorId, operation, key, requestHash, ct) is { } replay)

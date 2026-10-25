@@ -11,6 +11,7 @@ using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
 using Senzy.Modules.Funding;
+using Senzy.Infrastructure.Transactions;
 
 namespace Senzy.Api.Features.Funding;
 
@@ -18,6 +19,7 @@ public sealed class FundingService(
     SenzyDbContext db,
     IBankingProvider banking,
     TimeProvider clock,
+    ITransactionContext transactions,
     IWalletMovementService walletMovement,
     IFundingFailureInjector failureInjector)
 {
@@ -43,7 +45,7 @@ public sealed class FundingService(
     var normalized = request with { Direction = OperationsMappings.Value(direction), Currency = "USD" };
     var requestHash = Hash(normalized);
 
-    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+    await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
     if (await ReplayAsync(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
