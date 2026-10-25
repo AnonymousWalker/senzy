@@ -117,16 +117,73 @@ Derive the actor from the authenticated principal. Web mutations use secure cook
 
 Use Problem Details with stable application error codes and correlation IDs. Never log tokens, passwords, raw bank details, unrestricted request bodies, or unnecessary private data. Keep user IDs out of metric labels. Do not describe simulated provider records as settled funds.
 
-## Refactor sequence
+## Refactor checklist
 
-Each step must leave the API runnable and preserve `/v1` behavior.
+Each step must leave the API runnable and preserve `/v1` behavior. Checked items are implemented and verified; unchecked items remain planned.
 
-1. **Baseline and architecture checks** — characterize current routes, lock order, idempotency, ownership, and selected dependency rules.
-2. **Financial boundaries** — keep Payments/Funding as transaction owners; enforce Wallets and Ledger contracts; test atomicity, rollback, freeze races, and concurrent spending.
-3. **Per-consumer outbox** — migrate delivery rows, move notification handling to Notifications, and test leases, retries, deduplication, failed delivery, and replay.
-4. **Logical module ownership** — keep Operations as a compatibility surface while Reconciliation and Reporting own their workflows; remove alternate cross-module write paths.
-5. **Assembly enforcement** — after behavior is behind stable contracts, extract useful class libraries into the same deployable application and add dependency-cycle checks. The first slice places Ledger and Wallets contracts in `Senzy.Modules.Ledger` and `Senzy.Modules.Wallets`; their implementations still run in the host against the shared context.
-6. **Replica and worker hardening** — configure API/worker roles, coordinate scheduled reconciliation with a PostgreSQL advisory lease, share protected keys, define global rate-limit strategy, manage pools, and validate multi-instance recovery.
+### Baseline and enforcement
+
+- [x] Characterize endpoint responses, lock ordering, idempotency behavior, and ownership rules.
+- [x] Add initial architecture tests for selected scale-critical contracts.
+- [ ] Reject all forbidden project references and circular module dependencies at build time.
+- [ ] Add direct cross-module persistence-write checks for every owned record set.
+- [ ] Add the full PostgreSQL concurrency and rollback test harness.
+
+### Financial boundaries
+
+- [x] Keep Payments and Funding as transaction owners.
+- [x] Extract Ledger and Wallets contract assemblies.
+- [x] Move Ledger invariant planning into `Senzy.Modules.Ledger`.
+- [x] Move Wallet freeze and daily-limit decisions into `Senzy.Modules.Wallets`.
+- [ ] Add Wallets-owned persistence adapters for account lookup, locking, controls, and movement persistence.
+- [ ] Add Ledger-owned persistence adapters for accounts, postings, entries, and balance projections.
+- [ ] Move Wallets and Ledger implementations out of `Senzy.Api`.
+- [ ] Verify one PostgreSQL transaction across Payments/Funding, Wallets, Ledger, idempotency, and outbox.
+
+### Payments and Funding assemblies
+
+- [ ] Extract Payments application workflows into `Senzy.Modules.Payments`.
+- [ ] Extract Funding application workflows into `Senzy.Modules.Funding`.
+- [ ] Keep idempotency, business state, outbox creation, and commit ownership inside the initiating module.
+- [ ] Remove direct access from Payments and Funding to Wallets/Ledger persistence records.
+
+### Outbox and asynchronous work
+
+- [x] Add immutable versioned event envelopes.
+- [x] Add per-consumer delivery state, leases, retries, and uniqueness constraints.
+- [x] Move notification handling into Notifications.
+- [ ] Test independent consumer delivery, duplicate delivery, lease expiry, backoff, retention, replay, and deduplication.
+- [ ] Add delivery lag, retry, lease, and failed-message observability.
+
+### Logical ownership and infrastructure
+
+- [x] Keep Operations as the compatibility endpoint surface.
+- [x] Establish logical Reporting and Reconciliation ownership.
+- [ ] Remove remaining alternate cross-module write paths.
+- [ ] Extract `Senzy.Infrastructure` for EF persistence, migrations, provider adapters, and outbox mechanics.
+- [ ] Keep module implementations and persistence mappings internal to their assemblies.
+- [ ] Add module registration methods at the composition root.
+
+### Replica and worker hardening
+
+- [x] Add API-only, worker-only, and combined worker roles.
+- [x] Coordinate reconciliation with a PostgreSQL advisory lease.
+- [ ] Coordinate all scheduled runs with durable lease and unique-run semantics.
+- [ ] Share Data Protection keys across replicas and verify session movement.
+- [ ] Configure trusted proxy handling.
+- [ ] Define distributed or edge rate limiting for limits that must span replicas.
+- [ ] Add graceful worker shutdown and health reporting.
+- [ ] Measure connection-pool usage, lock waits, hot-wallet contention, and outbox freshness.
+- [ ] Make sandbox banking state durable or enforce its single-instance development-only boundary.
+
+### Recovery and acceptance
+
+- [ ] Test uncertain commit recovery and duplicate idempotency replay.
+- [ ] Test worker crash, lease takeover, database restart, and duplicate outbox delivery.
+- [ ] Exercise backup/restore and post-restore reconciliation.
+- [ ] Validate rolling deployment and migration compatibility.
+- [ ] Run the full build, contract checks, HTTP tests, PostgreSQL integration tests, migration review, and `/health/ready` validation.
+- [ ] Record measured operating results separately from aspirational targets.
 
 ## Verification and acceptance
 
@@ -140,6 +197,6 @@ Required multi-instance scenarios include session revocation, shared keys, idemp
 
 Implemented: Wallets movement/policy boundary, Ledger posting contract, per-consumer outbox schema and migration, Notifications handler extraction, Reporting and Reconciliation logical ownership, and architecture dependency tests.
 
-Partially implemented: Ledger and Wallets contract assemblies now build independently and the host references them without making the modules depend on the API host. Ledger invariant planning and Wallets outbound-policy decisions now run in their module assemblies; the host retains EF reads, row locks, entity mapping, and transaction participation. Worker-role configuration and PostgreSQL coordination for reconciliation scheduling are also implemented. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session. Architecture tests verify that selected scale-critical contracts do not expose EF Core, ASP.NET, persistence, or queryable types and that workflows do not depend on concrete financial implementations across module boundaries.
+Partially implemented: Ledger and Wallets contract assemblies now build independently and the host references them without making the modules depend on the API host. Ledger invariant planning and Wallets outbound-policy decisions now run in their module assemblies; the host retains EF reads, row locks, entity mapping, and transaction participation. Worker-role configuration and PostgreSQL coordination for reconciliation scheduling are also implemented. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session. Architecture tests verify that selected scale-critical contracts do not expose EF Core, ASP.NET, persistence, or queryable types and that workflows do not depend on concrete financial implementations across module boundaries. The checklist above is the execution status for the remaining work.
 
 Not yet complete: moving module implementations and persistence adapters into their assemblies, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, connection/lock measurements, and multi-instance/recovery validation.
