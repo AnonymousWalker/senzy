@@ -30,6 +30,7 @@ using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Infrastructure.Transactions;
 using Senzy.Api.Infrastructure.Banking;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<SenzyDbContext>(options =>
     options.UseNpgsql(connectionString ??
         "Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy"));
+builder.Services.AddScoped<ITransactionContext, EfTransactionContext>();
 
 builder.Services.AddIdentityApiEndpoints<ApplicationUser>(options =>
 {

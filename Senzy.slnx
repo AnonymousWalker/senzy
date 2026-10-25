@@ -4,6 +4,7 @@
   <Project Path="api-server/Modules/Wallets/Senzy.Modules.Wallets.csproj" />
   <Project Path="api-server/Modules/Payments/Senzy.Modules.Payments.csproj" />
   <Project Path="api-server/Modules/Funding/Senzy.Modules.Funding.csproj" />
+  <Project Path="api-server/Infrastructure/Transactions/Senzy.Infrastructure.csproj" />
   <Project Path="tests/Senzy.Api.Tests/Senzy.Api.Tests.csproj" />
   <Project Path="tools/Senzy.ContractExport/Senzy.ContractExport.csproj" />
 </Solution>
