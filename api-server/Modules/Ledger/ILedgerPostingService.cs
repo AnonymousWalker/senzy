@@ -32,3 +32,13 @@ public sealed record LedgerPostingRequest(
     Guid? FundingTransferId = null);
 
 public sealed record LedgerPostingResult(Guid TransactionId);
+
+public sealed record LedgerPostingContext(
+    LedgerAccountState Debit,
+    LedgerAccountState Credit);
+
+public interface ILedgerPostingStore
+{
+  LedgerPostingContext Load(Guid debitAccountId, Guid creditAccountId);
+  Guid Save(LedgerPostingPlan plan);
+}

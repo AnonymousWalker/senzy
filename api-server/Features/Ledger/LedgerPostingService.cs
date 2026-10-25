@@ -1,37 +1,22 @@
 using Senzy.Api.Infrastructure.Persistence.Models;
-using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Modules.Ledger;
 
 namespace Senzy.Api.Features.Ledger;
 
 public sealed class LedgerPostingService(
-    SenzyDbContext? db = null,
+    ILedgerPostingStore? store = null,
     LedgerPostingEngine? engine = null) : ILedgerPostingService
 {
   public LedgerPostingResult Post(LedgerPostingRequest request, CancellationToken cancellationToken = default)
   {
-    if (db is null)
+    if (store is null)
     {
-      throw new InvalidOperationException("The application ledger contract requires a persistence context.");
+      throw new InvalidOperationException("The application ledger contract requires a persistence adapter.");
     }
 
-    var debit = db.LedgerAccounts.Local.SingleOrDefault(account => account.Id == request.DebitAccountId)
-        ?? throw new InvalidOperationException("The debit ledger account must be loaded before posting.");
-    var credit = db.LedgerAccounts.Local.SingleOrDefault(account => account.Id == request.CreditAccountId)
-        ?? throw new InvalidOperationException("The credit ledger account must be loaded before posting.");
-
-    var plan = (engine ?? new LedgerPostingEngine()).CreatePlan(
-        new(debit.Id, debit.Currency, debit.BalanceMinor, debit.AllowNegative),
-        new(credit.Id, credit.Currency, credit.BalanceMinor, credit.AllowNegative),
-        request);
-
-    debit.BalanceMinor -= plan.AmountMinor;
-    credit.BalanceMinor += plan.AmountMinor;
-
-    var transaction = CreateTransaction(plan);
-
-    db.LedgerTransactions.Add(transaction);
-    return new(transaction.Id);
+    var context = store.Load(request.DebitAccountId, request.CreditAccountId);
+    var plan = (engine ?? new LedgerPostingEngine()).CreatePlan(context.Debit, context.Credit, request);
+    return new(store.Save(plan));
   }
 
   public LedgerTransaction Post(
