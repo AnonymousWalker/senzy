@@ -2,18 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Senzy.Api.Common;
 using Senzy.Infrastructure.Banking;
-using Senzy.Api.Features.Operations;
-using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
 using Senzy.Modules.Funding;
+using Senzy.Modules.Payments;
 using Senzy.Infrastructure.Transactions;
 
-namespace Senzy.Api.Features.Funding;
+namespace Senzy.Modules.Funding;
 
 public sealed class FundingService(
     SenzyDbContext db,
@@ -26,9 +24,9 @@ public sealed class FundingService(
   private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
   private const long MaximumAmountMinor = 1_000_000;
 
-  public async Task<FundingTransferResponse> CreateAsync(
+  public async Task<FundingTransferResult> CreateAsync(
       Guid actorId,
-      CreateFundingTransferRequest request,
+      FundingCreateCommand request,
       string idempotencyKey,
       CancellationToken ct)
   {
@@ -42,7 +40,7 @@ public sealed class FundingService(
     };
 
     const string operation = "funding.create";
-    var normalized = request with { Direction = OperationsMappings.Value(direction), Currency = "USD" };
+    var normalized = request with { Direction = FundingMappings.Value(direction), Currency = "USD" };
     var requestHash = Hash(normalized);
 
     await using var transaction = await transactions.BeginAsync(ct);
@@ -72,8 +70,8 @@ public sealed class FundingService(
     {
       UserId = actorId,
       ExternalAccountId = externalAccount.Id,
-      Direction = direction,
-      Status = FundingStatus.Posted,
+      Direction = (FundingPersistenceDirection)direction,
+      Status = FundingPersistenceStatus.Posted,
       AmountMinor = request.AmountMinor,
       Currency = "USD",
       Provider = externalAccount.Provider,
@@ -114,7 +112,7 @@ public sealed class FundingService(
       UserId = actorId,
       ExternalAccountId = externalAccount.Id,
       ProviderTransferId = transfer.ProviderTransferId,
-      Direction = direction,
+      Direction = (FundingPersistenceDirection)direction,
       AmountMinor = transfer.AmountMinor,
       Currency = transfer.Currency,
       CreatedAt = now
@@ -143,7 +141,7 @@ public sealed class FundingService(
             transfer.UserId,
             transfer.AmountMinor,
             transfer.Currency,
-            direction = OperationsMappings.Value(direction),
+            direction = FundingMappings.Value(direction),
             status = "posted"
           },
           JsonOptions)
@@ -155,7 +153,7 @@ public sealed class FundingService(
     return response;
   }
 
-  public async Task<FundingTransferListResponse> ListAsync(Guid actorId, int limit, CancellationToken ct)
+  public async Task<FundingTransferListResult> ListAsync(Guid actorId, int limit, CancellationToken ct)
   {
     var items = await db.FundingTransfers.AsNoTracking()
         .Where(transfer => transfer.UserId == actorId)
@@ -175,7 +173,7 @@ public sealed class FundingService(
         ct);
   }
 
-  private async Task<FundingTransferResponse?> ReplayAsync(
+  private async Task<FundingTransferResult?> ReplayAsync(
       Guid actorId,
       string operation,
       string key,
@@ -201,11 +199,11 @@ public sealed class FundingService(
           "That idempotency key was already used with different input.");
     }
 
-    return JsonSerializer.Deserialize<FundingTransferResponse>(record.ResponseJson, JsonOptions)
+    return JsonSerializer.Deserialize<FundingTransferResult>(record.ResponseJson, JsonOptions)
         ?? throw new InvalidOperationException("Stored idempotency response is invalid.");
   }
 
-  private static void Validate(CreateFundingTransferRequest request, string key)
+  private static void Validate(FundingCreateCommand request, string key)
   {
     if (request.ExternalAccountId == Guid.Empty
         || request.AmountMinor is <= 0 or > MaximumAmountMinor
@@ -231,14 +229,14 @@ public sealed class FundingService(
   private static string Hash<T>(T request) =>
       Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, JsonOptions)));
 
-  private static FundingTransferResponse Map(FundingTransfer transfer) =>
+  private static FundingTransferResult Map(FundingTransfer transfer) =>
       new(
           transfer.Id,
           transfer.ExternalAccountId,
           transfer.Provider,
           transfer.ProviderTransferId,
-          OperationsMappings.Value(transfer.Direction),
-          OperationsMappings.Value(transfer.Status),
+          FundingMappings.Value((FundingDirection)transfer.Direction),
+          FundingMappings.Value((FundingStatus)transfer.Status),
           transfer.AmountMinor,
           transfer.Currency,
           transfer.CreatedAt);

@@ -5,4 +5,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../../Infrastructure/Transactions/Senzy.Infrastructure.csproj" />
+    <ProjectReference Include="../Ledger/Senzy.Modules.Ledger.csproj" />
+    <ProjectReference Include="../Wallets/Senzy.Modules.Wallets.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+  </ItemGroup>
+
 </Project>

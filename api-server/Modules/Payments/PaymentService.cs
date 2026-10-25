@@ -2,10 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Senzy.Api.Common;
-using Senzy.Api.Features.Profiles;
-using Senzy.Api.Features.Operations;
-using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Modules.Ledger;
@@ -13,7 +9,7 @@ using Senzy.Modules.Wallets;
 using Senzy.Modules.Payments;
 using Senzy.Infrastructure.Transactions;
 
-namespace Senzy.Api.Features.Payments;
+namespace Senzy.Modules.Payments;
 
 public sealed class PaymentService(
     SenzyDbContext db,
@@ -21,30 +17,27 @@ public sealed class PaymentService(
     ITransactionContext transactions,
     IPaymentFailureInjector failureInjector,
     IWalletMovementService walletMovement,
-    RecipientDirectory recipients)
+    IWalletBalanceReader walletBalances,
+    IRecipientDirectory recipients)
 {
   private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
   private const long MaximumAmountMinor = 1_000_000;
 
-  public async Task<WalletResponse> GetWalletAsync(Guid actorId, CancellationToken ct)
+  public async Task<WalletSnapshot> GetWalletAsync(Guid actorId, CancellationToken ct)
   {
-    var wallet = await db.LedgerAccounts.AsNoTracking().SingleOrDefaultAsync(
-        account => account.OwnerUserId == actorId
-            && account.Purpose == LedgerAccountPurpose.Wallet
-            && account.Currency == "USD",
-        ct);
+    var wallet = await walletBalances.GetAsync(actorId, ct);
 
     if (wallet is null)
     {
       throw new PaymentCommandException(404, "wallet_missing", "Wallet not found.");
     }
 
-    return new(wallet.BalanceMinor, wallet.BalanceMinor, wallet.Currency, true);
+    return new(wallet.AvailableMinor, wallet.SettledMinor, wallet.Currency, true);
   }
 
-  public async Task<PaymentResponse> SendAsync(
+  public async Task<PaymentResult> SendAsync(
       Guid actorId,
-      SendPaymentRequest request,
+      PaymentSendCommand request,
       string idempotencyKey,
       CancellationToken ct)
   {
@@ -80,7 +73,7 @@ public sealed class PaymentService(
         ct);
   }
 
-  public async Task<PaymentResponse> AcceptRequestAsync(
+  public async Task<PaymentResult> AcceptRequestAsync(
       Guid actorId,
       Guid requestId,
       string idempotencyKey,
@@ -94,7 +87,7 @@ public sealed class PaymentService(
     await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
-    if (await ReplayAsync<PaymentResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
+    if (await ReplayAsync<PaymentResult>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
     {
       return replay;
     }
@@ -141,7 +134,7 @@ public sealed class PaymentService(
     return response;
   }
 
-  public async Task<PaymentResponse> ReverseAsync(
+  public async Task<PaymentResult> ReverseAsync(
       Guid actorId,
       Guid paymentId,
       string idempotencyKey,
@@ -155,7 +148,7 @@ public sealed class PaymentService(
     await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
-    if (await ReplayAsync<PaymentResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
+    if (await ReplayAsync<PaymentResult>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
     {
       return replay;
     }
@@ -169,7 +162,7 @@ public sealed class PaymentService(
       throw new PaymentCommandException(404, "payment_missing", "Payment not found.");
     }
 
-    if (!PaymentStateMachine.CanTransition(payment.Status, PaymentStatus.Reversed))
+    if (!PaymentStateMachine.CanTransition((PaymentStatus)payment.Status, PaymentStatus.Reversed))
     {
       throw new PaymentCommandException(409, "payment_not_reversible", "This payment cannot be reversed.");
     }
@@ -187,7 +180,7 @@ public sealed class PaymentService(
             ReversesTransactionId: payment.PostedLedgerTransactionId),
         ct);
 
-    payment.Status = PaymentStatus.Reversed;
+    payment.Status = (PaymentPersistenceStatus)PaymentStatus.Reversed;
     payment.ReversalLedgerTransactionId = reversal.LedgerTransactionId;
     payment.ReversedAt = clock.GetUtcNow();
 
@@ -207,9 +200,9 @@ public sealed class PaymentService(
     return response;
   }
 
-  public async Task<PaymentRequestResponse> CreateRequestAsync(
+  public async Task<PaymentRequestResult> CreateRequestAsync(
       Guid actorId,
-      CreatePaymentRequest request,
+      PaymentRequestCommand request,
       string idempotencyKey,
       CancellationToken ct)
   {
@@ -236,7 +229,7 @@ public sealed class PaymentService(
     await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, idempotencyKey, ct);
 
-    if (await ReplayAsync<PaymentRequestResponse>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
+    if (await ReplayAsync<PaymentRequestResult>(actorId, operation, idempotencyKey, requestHash, ct) is { } replay)
     {
       return replay;
     }
@@ -275,7 +268,7 @@ public sealed class PaymentService(
     return response;
   }
 
-  public async Task<PaymentListResponse> ListPaymentsAsync(Guid actorId, int limit, CancellationToken ct)
+  public async Task<PaymentListResult> ListPaymentsAsync(Guid actorId, int limit, CancellationToken ct)
   {
     limit = Math.Clamp(limit, 1, 100);
 
@@ -292,7 +285,7 @@ public sealed class PaymentService(
     return new(rows.Select(row => Map(row.payment, row.SenderHandle, row.RecipientHandle)).ToList());
   }
 
-  public async Task<PaymentRequestListResponse> ListRequestsAsync(Guid actorId, int limit, CancellationToken ct)
+  public async Task<PaymentRequestListResult> ListRequestsAsync(Guid actorId, int limit, CancellationToken ct)
   {
     limit = Math.Clamp(limit, 1, 100);
 
@@ -309,10 +302,10 @@ public sealed class PaymentService(
     return new(rows.Select(row => Map(row.request, row.RequesterHandle, row.PayerHandle)).ToList());
   }
 
-  private async Task<PaymentResponse> PostPaymentAsync(
+  private async Task<PaymentResult> PostPaymentAsync(
       Guid actorId,
-      RecipientReference sender,
-      RecipientReference recipient,
+      PaymentRecipient sender,
+      PaymentRecipient recipient,
       long amountMinor,
       string currency,
       string note,
@@ -326,7 +319,7 @@ public sealed class PaymentService(
     await using var transaction = await transactions.BeginAsync(ct);
     await LockIdempotencyScopeAsync(actorId, operation, key, ct);
 
-    if (await ReplayAsync<PaymentResponse>(actorId, operation, key, requestHash, ct) is { } replay)
+    if (await ReplayAsync<PaymentResult>(actorId, operation, key, requestHash, ct) is { } replay)
     {
       return replay;
     }
@@ -348,9 +341,9 @@ public sealed class PaymentService(
     return response;
   }
 
-  private async Task<PaymentResponse> AddPostedPaymentAsync(
-      RecipientReference sender,
-      RecipientReference recipient,
+  private async Task<PaymentResult> AddPostedPaymentAsync(
+      PaymentRecipient sender,
+      PaymentRecipient recipient,
       long amountMinor,
       string currency,
       string note,
@@ -365,7 +358,7 @@ public sealed class PaymentService(
       RecipientUserId = recipient.UserId,
       PaymentRequestId = paymentRequestId,
       Kind = kind,
-      Status = PaymentStatus.Posted,
+      Status = PaymentPersistenceStatus.Posted,
       AmountMinor = amountMinor,
       Currency = currency,
       Note = note,
@@ -506,11 +499,11 @@ public sealed class PaymentService(
   private static string Hash<T>(T request) =>
       Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request, JsonOptions)));
 
-  private static PaymentResponse Map(Payment payment, string senderHandle, string recipientHandle) =>
+  private static PaymentResult Map(Payment payment, string senderHandle, string recipientHandle) =>
       new(
           payment.Id,
           PaymentMappings.Value(payment.Kind),
-          PaymentMappings.Value(payment.Status),
+          PaymentMappings.Value((PaymentStatus)payment.Status),
           payment.SenderUserId,
           senderHandle,
           payment.RecipientUserId,
@@ -521,7 +514,7 @@ public sealed class PaymentService(
           payment.CreatedAt,
           payment.ReversedAt);
 
-  private static PaymentRequestResponse Map(
+  private static PaymentRequestResult Map(
       PaymentRequest request,
       string requesterHandle,
       string payerHandle) =>

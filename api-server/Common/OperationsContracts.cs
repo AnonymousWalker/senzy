@@ -71,13 +71,3 @@ internal static class OperationsMappings
 
   public static string Value(FundingStatus value) => value.ToString().ToLowerInvariant();
 }
-
-public interface IFundingFailureInjector
-{
-  Task BeforeCommitAsync(CancellationToken cancellationToken);
-}
-
-public sealed class NoopFundingFailureInjector : IFundingFailureInjector
-{
-  public Task BeforeCommitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-}

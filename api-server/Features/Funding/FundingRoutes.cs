@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Profiles;
+using Senzy.Modules.Funding;
 
 namespace Senzy.Api.Features.Funding;
 
@@ -16,7 +17,7 @@ public static class FundingRoutes
     group.MapGet(
         "/",
         async (int? limit, ClaimsPrincipal actor, FundingService funding, CancellationToken ct) =>
-            await Execute(() => funding.ListAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct)))
+            await Execute(async () => Map(await funding.ListAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
         .WithName("ListFundingTransfers")
         .Produces<FundingTransferListResponse>();
 
@@ -29,12 +30,12 @@ public static class FundingRoutes
             FundingService funding,
             CancellationToken ct) =>
         {
-          var result = await Execute(() =>
-              funding.CreateAsync(
+          var result = await Execute(async () =>
+              Map(await funding.CreateAsync(
                   ProfileRoutes.ActorId(actor),
-                  request,
+                  new FundingCreateCommand(request.ExternalAccountId, request.Direction, request.AmountMinor, request.Currency),
                   context.Request.Headers["Idempotency-Key"].ToString(),
-                  ct));
+                  ct)));
 
           return result is IValueHttpResult<FundingTransferResponse> { Value: { } value }
               ? Results.Created($"/v1/funding-transfers/{value.Id}", value)
@@ -53,9 +54,16 @@ public static class FundingRoutes
     {
       return Results.Ok(await action());
     }
-    catch (PaymentCommandException error)
+    catch (Senzy.Modules.Payments.PaymentCommandException error)
     {
       return ApiErrors.Problem(error.Status, error.Code, error.Message);
     }
   }
+
+  private static FundingTransferListResponse Map(FundingTransferListResult value) =>
+      new(value.Items.Select(Map).ToList());
+
+  private static FundingTransferResponse Map(FundingTransferResult value) =>
+      new(value.Id, value.ExternalAccountId, value.Provider, value.ProviderTransferId,
+          value.Direction, value.Status, value.AmountMinor, value.Currency, value.CreatedAt);
 }

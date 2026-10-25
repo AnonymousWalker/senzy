@@ -29,11 +29,11 @@ public sealed class TransactionHistoryService(SenzyDbContext db)
         .Where(transfer => transfer.UserId == actorId)
         .Select(transfer => new TransactionHistoryItem(
             transfer.Id,
-            transfer.Direction == FundingDirection.CashIn ? "cash_in" : "cash_out",
+            (int)transfer.Direction == (int)FundingDirection.CashIn ? "cash_in" : "cash_out",
             transfer.Status.ToString().ToLower(),
-            transfer.Direction == FundingDirection.CashIn ? transfer.AmountMinor : -transfer.AmountMinor,
+            (int)transfer.Direction == (int)FundingDirection.CashIn ? transfer.AmountMinor : -transfer.AmountMinor,
             transfer.Currency,
-            transfer.Direction == FundingDirection.CashIn ? "Sandbox cash-in" : "Sandbox cash-out",
+            (int)transfer.Direction == (int)FundingDirection.CashIn ? "Sandbox cash-in" : "Sandbox cash-out",
             transfer.CreatedAt))
         .ToListAsync(ct);
 

@@ -1,5 +1,3 @@
-using Senzy.Modules.Payments;
-
 namespace Senzy.Api.Infrastructure.Persistence.Models;
 
 public enum PaymentKind
@@ -16,6 +14,14 @@ public enum PaymentRequestStatus
   Cancelled
 }
 
+public enum PaymentPersistenceStatus
+{
+  Pending,
+  Posted,
+  Failed,
+  Reversed
+}
+
 public sealed class Payment
 {
   public Guid Id { get; set; } = Guid.NewGuid();
@@ -25,7 +31,7 @@ public sealed class Payment
   public Guid PostedLedgerTransactionId { get; set; }
   public Guid? ReversalLedgerTransactionId { get; set; }
   public PaymentKind Kind { get; set; }
-  public PaymentStatus Status { get; set; }
+  public PaymentPersistenceStatus Status { get; set; }
   public long AmountMinor { get; set; }
   public string Currency { get; set; } = "USD";
   public string Note { get; set; } = "";

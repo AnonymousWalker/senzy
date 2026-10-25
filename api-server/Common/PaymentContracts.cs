@@ -60,17 +60,6 @@ public sealed class PaymentCommandException(int status, string code, string deta
   public string Code { get; } = code;
 }
 
-public interface IPaymentFailureInjector
-{
-  Task BeforeCommitAsync(string operation, CancellationToken cancellationToken);
-}
-
-public sealed class NoopPaymentFailureInjector : IPaymentFailureInjector
-{
-  public Task BeforeCommitAsync(string operation, CancellationToken cancellationToken) =>
-      Task.CompletedTask;
-}
-
 internal static class PaymentMappings
 {
   public static string Value(PaymentStatus status) => status.ToString().ToLowerInvariant();

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Profiles;
+using Senzy.Modules.Payments;
 
 namespace Senzy.Api.Features.Payments;
 
@@ -15,7 +16,7 @@ public static class PaymentRoutes
     wallet.MapGet(
         "/",
         async (ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
-            await Execute(() => payments.GetWalletAsync(ProfileRoutes.ActorId(actor), ct)))
+            await Execute(async () => Map(await payments.GetWalletAsync(ProfileRoutes.ActorId(actor), ct))))
         .WithName("GetWallet")
         .Produces<WalletResponse>()
         .ProducesProblem(404);
@@ -28,7 +29,7 @@ public static class PaymentRoutes
     paymentGroup.MapGet(
         "/",
         async (int? limit, ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
-            await Execute(() => payments.ListPaymentsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct)))
+            await Execute(async () => Map(await payments.ListPaymentsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
         .WithName("ListPayments")
         .Produces<PaymentListResponse>();
 
@@ -41,12 +42,12 @@ public static class PaymentRoutes
             PaymentService payments,
             CancellationToken ct) =>
         {
-          var result = await Execute(() =>
-              payments.SendAsync(
+          var result = await Execute(async () =>
+              Map(await payments.SendAsync(
                   ProfileRoutes.ActorId(actor),
-                  request,
+                  new PaymentSendCommand(request.RecipientHandle, request.AmountMinor, request.Currency, request.Note),
                   context.Request.Headers["Idempotency-Key"].ToString(),
-                  ct));
+                  ct)));
 
           return result is IValueHttpResult<PaymentResponse> { Value: { } value }
               ? Results.Created($"/v1/payments/{value.Id}", value)
@@ -66,12 +67,12 @@ public static class PaymentRoutes
             HttpContext context,
             PaymentService payments,
             CancellationToken ct) =>
-            await Execute(() =>
+            await Execute(async () => Map(await
                 payments.ReverseAsync(
                     ProfileRoutes.ActorId(actor),
                     paymentId,
                     context.Request.Headers["Idempotency-Key"].ToString(),
-                    ct)))
+                    ct))))
         .WithName("ReversePayment")
         .Produces<PaymentResponse>()
         .ProducesProblem(400)
@@ -86,7 +87,7 @@ public static class PaymentRoutes
     requestGroup.MapGet(
         "/",
         async (int? limit, ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
-            await Execute(() => payments.ListRequestsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct)))
+            await Execute(async () => Map(await payments.ListRequestsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
         .WithName("ListPaymentRequests")
         .Produces<PaymentRequestListResponse>();
 
@@ -99,12 +100,12 @@ public static class PaymentRoutes
             PaymentService payments,
             CancellationToken ct) =>
         {
-          var result = await Execute(() =>
-              payments.CreateRequestAsync(
+          var result = await Execute(async () =>
+              Map(await payments.CreateRequestAsync(
                   ProfileRoutes.ActorId(actor),
-                  request,
+                  new PaymentRequestCommand(request.PayerHandle, request.AmountMinor, request.Currency, request.Note),
                   context.Request.Headers["Idempotency-Key"].ToString(),
-                  ct));
+                  ct)));
 
           return result is IValueHttpResult<PaymentRequestResponse> { Value: { } value }
               ? Results.Created($"/v1/payment-requests/{value.Id}", value)
@@ -124,12 +125,12 @@ public static class PaymentRoutes
             HttpContext context,
             PaymentService payments,
             CancellationToken ct) =>
-            await Execute(() =>
+            await Execute(async () => Map(await
                 payments.AcceptRequestAsync(
                     ProfileRoutes.ActorId(actor),
                     requestId,
                     context.Request.Headers["Idempotency-Key"].ToString(),
-                    ct)))
+                    ct))))
         .WithName("AcceptPaymentRequest")
         .Produces<PaymentResponse>()
         .ProducesProblem(400)
@@ -143,9 +144,28 @@ public static class PaymentRoutes
     {
       return Results.Ok(await action());
     }
-    catch (PaymentCommandException error)
+    catch (Senzy.Modules.Payments.PaymentCommandException error)
     {
       return ApiErrors.Problem(error.Status, error.Code, error.Message);
     }
   }
+
+  private static WalletResponse Map(WalletSnapshot value) =>
+      new(value.AvailableMinor, value.SettledMinor, value.Currency, value.IsSimulated);
+
+  private static PaymentResponse Map(PaymentResult value) =>
+      new(value.Id, value.Kind, value.Status, value.SenderUserId, value.SenderHandle,
+          value.RecipientUserId, value.RecipientHandle, value.AmountMinor, value.Currency,
+          value.Note, value.CreatedAt, value.ReversedAt);
+
+  private static PaymentListResponse Map(PaymentListResult value) =>
+      new(value.Items.Select(Map).ToList());
+
+  private static PaymentRequestResponse Map(PaymentRequestResult value) =>
+      new(value.Id, value.Status, value.RequesterUserId, value.RequesterHandle,
+          value.PayerUserId, value.PayerHandle, value.AmountMinor, value.Currency,
+          value.Note, value.PaymentId, value.CreatedAt, value.ResolvedAt);
+
+  private static PaymentRequestListResponse Map(PaymentRequestListResult value) =>
+      new(value.Items.Select(Map).ToList());
 }

@@ -55,7 +55,7 @@ public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
             && transaction.Entries.Count == 2
             && transaction.Entries.All(entry =>
                 entry.AmountMinor == payment.AmountMinor && entry.Currency == payment.Currency))
-        || (payment.Status == PaymentStatus.Reversed
+        || ((int)payment.Status == (int)PaymentStatus.Reversed
             && (payment.ReversalLedgerTransactionId == null
                 || !db.LedgerTransactions.Any(transaction =>
                     transaction.Id == payment.ReversalLedgerTransactionId
@@ -66,7 +66,7 @@ public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
         !db.LedgerTransactions.Any(transaction =>
             transaction.Id == transfer.LedgerTransactionId
             && transaction.FundingTransferId == transfer.Id
-            && transaction.Kind == (transfer.Direction == FundingDirection.CashIn
+            && transaction.Kind == ((int)transfer.Direction == (int)FundingDirection.CashIn
                 ? LedgerTransactionKind.FundingIn
                 : LedgerTransactionKind.FundingOut)
             && transaction.Entries.Count == 2

@@ -14,6 +14,7 @@
     <Compile Remove="Infrastructure\Persistence\OperationalModels.cs" />
     <Compile Remove="Infrastructure\Persistence\Models\**\*.cs" />
     <Compile Remove="Infrastructure\Persistence\WalletPolicyStore.cs" />
+    <Compile Remove="Infrastructure\Persistence\WalletBalanceStore.cs" />
     <Compile Remove="Infrastructure\Persistence\WalletMovementStore.cs" />
     <Compile Remove="Infrastructure\Persistence\LedgerPostingStore.cs" />
     <Compile Remove="Infrastructure\Persistence\EfTransactionContext.cs" />

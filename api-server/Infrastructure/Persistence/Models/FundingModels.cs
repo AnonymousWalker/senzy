@@ -1,6 +1,15 @@
-using Senzy.Modules.Funding;
-
 namespace Senzy.Api.Infrastructure.Persistence.Models;
+
+public enum FundingPersistenceDirection
+{
+  CashIn,
+  CashOut
+}
+
+public enum FundingPersistenceStatus
+{
+  Posted
+}
 
 public sealed class FundingTransfer
 {
@@ -9,8 +18,8 @@ public sealed class FundingTransfer
   public Guid ExternalAccountId { get; set; }
   public string Provider { get; set; } = "stub-banking";
   public string ProviderTransferId { get; set; } = "";
-  public FundingDirection Direction { get; set; }
-  public FundingStatus Status { get; set; }
+  public FundingPersistenceDirection Direction { get; set; }
+  public FundingPersistenceStatus Status { get; set; }
   public long AmountMinor { get; set; }
   public string Currency { get; set; } = "USD";
   public Guid LedgerTransactionId { get; set; }
@@ -25,7 +34,7 @@ public sealed class SandboxProviderTransfer
   public Guid UserId { get; set; }
   public Guid ExternalAccountId { get; set; }
   public string ProviderTransferId { get; set; } = "";
-  public FundingDirection Direction { get; set; }
+  public FundingPersistenceDirection Direction { get; set; }
   public long AmountMinor { get; set; }
   public string Currency { get; set; } = "USD";
   public string Status { get; set; } = "posted";
