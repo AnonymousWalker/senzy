@@ -94,6 +94,14 @@ Paths below are relative to the repository root:
 ```text
 api-server/
   Program.cs
+  Modules/
+    Ledger/
+      Senzy.Modules.Ledger.csproj
+      ILedgerPostingService.cs
+    Wallets/
+      Senzy.Modules.Wallets.csproj
+      IWalletPolicy.cs
+      IWalletMovementService.cs
   Features/
     Health/
       HealthRoutes.cs

@@ -125,7 +125,7 @@ Each step must leave the API runnable and preserve `/v1` behavior.
 2. **Financial boundaries** — keep Payments/Funding as transaction owners; enforce Wallets and Ledger contracts; test atomicity, rollback, freeze races, and concurrent spending.
 3. **Per-consumer outbox** — migrate delivery rows, move notification handling to Notifications, and test leases, retries, deduplication, failed delivery, and replay.
 4. **Logical module ownership** — keep Operations as a compatibility surface while Reconciliation and Reporting own their workflows; remove alternate cross-module write paths.
-5. **Assembly enforcement** — after behavior is behind stable contracts, extract useful class libraries into the same deployable application and add dependency-cycle checks.
+5. **Assembly enforcement** — after behavior is behind stable contracts, extract useful class libraries into the same deployable application and add dependency-cycle checks. The first slice places Ledger and Wallets contracts in `Senzy.Modules.Ledger` and `Senzy.Modules.Wallets`; their implementations still run in the host against the shared context.
 6. **Replica and worker hardening** — configure API/worker roles, coordinate scheduled reconciliation with a PostgreSQL advisory lease, share protected keys, define global rate-limit strategy, manage pools, and validate multi-instance recovery.
 
 ## Verification and acceptance
@@ -140,6 +140,6 @@ Required multi-instance scenarios include session revocation, shared keys, idemp
 
 Implemented: Wallets movement/policy boundary, Ledger posting contract, per-consumer outbox schema and migration, Notifications handler extraction, Reporting and Reconciliation logical ownership, and architecture dependency tests.
 
-Partially implemented: worker-role configuration and PostgreSQL coordination for reconciliation scheduling. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session. Architecture tests now verify that selected scale-critical contracts do not expose EF Core, ASP.NET, persistence, or queryable types and that workflows do not depend on concrete financial implementations across module boundaries.
+Partially implemented: Ledger and Wallets contract assemblies now build independently and the host references them without making the modules depend on the API host. Worker-role configuration and PostgreSQL coordination for reconciliation scheduling are also implemented. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session. Architecture tests verify that selected scale-critical contracts do not expose EF Core, ASP.NET, persistence, or queryable types and that workflows do not depend on concrete financial implementations across module boundaries.
 
-Not yet complete: class-library extraction, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, connection/lock measurements, and multi-instance/recovery validation.
+Not yet complete: moving module implementations and persistence adapters into their assemblies, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, connection/lock measurements, and multi-instance/recovery validation.

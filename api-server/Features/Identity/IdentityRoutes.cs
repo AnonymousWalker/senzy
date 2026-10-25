@@ -11,6 +11,7 @@ using Senzy.Api.Common;
 using Senzy.Api.Features.Configuration;
 using Senzy.Api.Features.Profiles;
 using Senzy.Api.Features.Ledger;
+using Senzy.Modules.Ledger;
 using Senzy.Api.Infrastructure.Persistence;
 
 namespace Senzy.Api.Features.Identity;

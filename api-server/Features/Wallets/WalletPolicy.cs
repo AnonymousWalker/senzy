@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
-using Senzy.Api.Features.Ledger;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
+using Senzy.Modules.Ledger;
+using Senzy.Modules.Wallets;
 
 namespace Senzy.Api.Features.Wallets;
 

@@ -1,10 +1,12 @@
+using Senzy.Api.Features.Ledger;
+using Senzy.Api.Features.Wallets;
 using Senzy.Api.Features.Funding;
 using Senzy.Api.Features.Banking;
-using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Payments;
 using Senzy.Api.Features.Profiles;
-using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Outbox;
+using Senzy.Modules.Ledger;
+using Senzy.Modules.Wallets;
 using System.Collections;
 using System.Reflection;
 using System.Linq;

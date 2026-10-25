@@ -4,11 +4,12 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Banking;
-using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Operations;
 using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
+using Senzy.Modules.Ledger;
+using Senzy.Modules.Wallets;
 
 namespace Senzy.Api.Features.Funding;
 

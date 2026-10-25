@@ -4,6 +4,7 @@ using Senzy.Api.Features.Profiles;
 using Senzy.Api.Features.Reporting;
 using Senzy.Api.Features.Reconciliation;
 using Senzy.Api.Features.Wallets;
+using Senzy.Modules.Wallets;
 
 namespace Senzy.Api.Features.Operations;
 

@@ -1,4 +1,4 @@
-namespace Senzy.Api.Features.Wallets;
+namespace Senzy.Modules.Wallets;
 
 public interface IWalletPolicy
 {

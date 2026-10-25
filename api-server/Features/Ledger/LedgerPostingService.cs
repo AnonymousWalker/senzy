@@ -1,5 +1,6 @@
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Modules.Ledger;
 
 namespace Senzy.Api.Features.Ledger;
 

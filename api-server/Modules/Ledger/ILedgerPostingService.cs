@@ -1,4 +1,4 @@
-namespace Senzy.Api.Features.Ledger;
+namespace Senzy.Modules.Ledger;
 
 public enum LedgerAccountRole
 {

@@ -1,6 +1,6 @@
-using Senzy.Api.Features.Ledger;
+using Senzy.Modules.Ledger;
 
-namespace Senzy.Api.Features.Wallets;
+namespace Senzy.Modules.Wallets;
 
 public sealed record WalletMovementRequest(
     Guid DebitOwnerUserId,

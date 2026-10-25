@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Modules\**\*.cs" />
+    <None Include="Modules\**\*.cs" />
+    <ProjectReference Include="Modules\Ledger\Senzy.Modules.Ledger.csproj" />
+    <ProjectReference Include="Modules\Wallets\Senzy.Modules.Wallets.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
