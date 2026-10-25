@@ -21,8 +21,8 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 
 - [x] Characterize endpoint responses, lock ordering, idempotency behavior, and ownership rules.
 - [x] Add initial architecture tests for selected scale-critical contracts.
-- [ ] Reject forbidden project references and circular module dependencies at build time.
-- [ ] Add direct cross-module persistence-write checks for every owned record set.
+- [x] Reject forbidden project references and circular module dependencies through architecture tests.
+- [x] Add direct cross-module persistence-write checks for the scale-critical financial modules.
 - [ ] Add the full PostgreSQL concurrency and rollback test harness.
 
 ## Financial boundaries
@@ -41,7 +41,7 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - [x] Extract Payments application workflows into `Senzy.Modules.Payments`.
 - [x] Extract Funding application workflows into `Senzy.Modules.Funding`.
 - [ ] Keep idempotency, business state, outbox creation, and commit ownership inside the initiating module.
-- [ ] Remove direct access from Payments and Funding to Wallets/Ledger persistence records.
+- [x] Remove direct access from Payments and Funding to Wallets/Ledger persistence records.
 
 ## Outbox and asynchronous work
 
@@ -101,3 +101,4 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - **Provider adapter extraction:** The sandbox banking contract and provider now compile in `Senzy.Infrastructure`; the API retains only the `/v1` route composition surface.
 - **Step 4:** Complete for the current assembly slice. Payment application workflow, state transitions, idempotency coordination, and response result types are in `Senzy.Modules.Payments`; API routes map HTTP DTOs to module commands/results.
 - **Step 5:** Complete for the current assembly slice. Funding application workflow, idempotency coordination, provider boundary, and response result types are in `Senzy.Modules.Funding`; API routes map HTTP DTOs to module commands/results.
+- **Dependency enforcement:** Architecture tests now reject module references to `Senzy.Api`, detect module-reference cycles, verify financial workflows live in their module assemblies, and scan Payments/Funding source for direct Wallets/Ledger persistence access.
