@@ -12,7 +12,7 @@ namespace Senzy.Api.Features.Wallets;
 /// caller's PostgreSQL transaction. The service never commits independently.
 /// </summary>
 public sealed class WalletPolicy(
-    SenzyDbContext db,
+    IWalletPolicyStore store,
     TimeProvider clock,
     IConfiguration configuration,
     WalletPolicyEngine engine) : IWalletPolicy
@@ -20,28 +20,13 @@ public sealed class WalletPolicy(
   public long DailyLimitMinor => configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L);
 
   public async Task<bool> IsFrozenAsync(Guid actorId, CancellationToken ct) =>
-      await db.WalletControls.AsNoTracking()
-          .AnyAsync(control => control.UserId == actorId && control.IsFrozen, ct);
+      await store.IsFrozenAsync(actorId, ct);
 
   public async Task<long> UsedTodayAsync(Guid actorId, CancellationToken ct)
   {
     var start = new DateTimeOffset(clock.GetUtcNow().UtcDateTime.Date, TimeSpan.Zero);
 
-    return await (
-            from entry in db.LedgerEntries.AsNoTracking()
-            join transaction in db.LedgerTransactions.AsNoTracking()
-                on entry.LedgerTransactionId equals transaction.Id
-            join account in db.LedgerAccounts.AsNoTracking()
-                on entry.LedgerAccountId equals account.Id
-            where account.OwnerUserId == actorId
-                && account.Purpose == LedgerAccountPurpose.Wallet
-                && entry.Direction == LedgerEntryDirection.Debit
-                && transaction.CreatedAt >= start
-                && (transaction.Kind == LedgerTransactionKind.Payment
-                    || transaction.Kind == LedgerTransactionKind.Reversal
-                    || transaction.Kind == LedgerTransactionKind.FundingOut)
-            select (long?)entry.AmountMinor)
-        .SumAsync(ct) ?? 0;
+    return await store.GetUsedTodayAsync(actorId, start, ct);
   }
 
   public async Task EnsureAllowedAsync(Guid actorId, long amountMinor, CancellationToken ct)
@@ -71,16 +56,7 @@ public sealed class WalletPolicy(
 
   public async Task SetFrozenAsync(Guid actorId, bool frozen, CancellationToken ct)
   {
-    var control = await db.WalletControls.SingleOrDefaultAsync(value => value.UserId == actorId, ct);
-    if (control is null)
-    {
-      control = new WalletControl { UserId = actorId };
-      db.WalletControls.Add(control);
-    }
-
-    control.IsFrozen = frozen;
-    control.UpdatedAt = clock.GetUtcNow();
-    await db.SaveChangesAsync(ct);
+    await store.SetFrozenAsync(actorId, frozen, clock.GetUtcNow(), ct);
   }
 }
 
