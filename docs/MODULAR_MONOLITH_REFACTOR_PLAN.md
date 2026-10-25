@@ -2,6 +2,21 @@
 
 This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md). Each step must preserve the existing `/v1` contracts and keep one ASP.NET Core deployment, one PostgreSQL system of record, and synchronous in-process module calls.
 
+## Twelve major steps
+
+1. **Extract Wallets persistence adapters** — isolate account lookup, locking, wallet controls, and movement persistence behind Wallets-owned interfaces.
+2. **Extract Ledger persistence adapters** — isolate ledger accounts, postings, entries, and balance projections behind Ledger-owned interfaces.
+3. **Move Wallets and Ledger implementations** — move their concrete services out of `Senzy.Api` while preserving the shared transaction.
+4. **Extract Payments** — move payment workflows into `Senzy.Modules.Payments` with idempotency and commit ownership intact.
+5. **Extract Funding** — move funding workflows into `Senzy.Modules.Funding` with provider calls and financial transactions correctly separated.
+6. **Enforce module dependencies** — reject forbidden project references, circular dependencies, and direct cross-module persistence writes.
+7. **Harden outbox delivery** — complete consumer-specific retry, lease recovery, deduplication, replay, retention, and observability.
+8. **Finish logical ownership** — keep Operations as a compatibility surface while removing alternate write paths from Reporting and Reconciliation.
+9. **Extract shared infrastructure** — move EF persistence, migrations, provider adapters, and outbox mechanics into `Senzy.Infrastructure`.
+10. **Harden replica operation** — complete worker coordination, shared keys, trusted proxies, distributed rate limiting, shutdown, and health reporting.
+11. **Validate scale and recovery** — measure pool usage, lock contention, throughput, crash recovery, database restart, backup restore, and reconciliation.
+12. **Complete acceptance and rollout checks** — run builds, contract checks, HTTP tests, PostgreSQL integration tests, migration review, and readiness validation.
+
 ## Baseline and enforcement
 
 - [x] Characterize endpoint responses, lock ordering, idempotency behavior, and ownership rules.
