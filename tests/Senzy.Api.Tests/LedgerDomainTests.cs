@@ -1,5 +1,5 @@
 using Senzy.Modules.Ledger;
-using Senzy.Api.Features.Payments;
+using Senzy.Modules.Payments;
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Xunit;
 

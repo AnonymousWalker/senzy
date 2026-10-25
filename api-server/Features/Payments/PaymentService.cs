@@ -10,6 +10,7 @@ using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
+using Senzy.Modules.Payments;
 
 namespace Senzy.Api.Features.Payments;
 

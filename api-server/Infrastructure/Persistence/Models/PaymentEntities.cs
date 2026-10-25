@@ -1,17 +1,11 @@
+using Senzy.Modules.Payments;
+
 namespace Senzy.Api.Infrastructure.Persistence.Models;
 
 public enum PaymentKind
 {
   Send,
   Request
-}
-
-public enum PaymentStatus
-{
-  Pending,
-  Posted,
-  Failed,
-  Reversed
 }
 
 public enum PaymentRequestStatus

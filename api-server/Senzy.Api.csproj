@@ -11,6 +11,8 @@
     <None Include="Modules\**\*.cs" />
     <ProjectReference Include="Modules\Ledger\Senzy.Modules.Ledger.csproj" />
     <ProjectReference Include="Modules\Wallets\Senzy.Modules.Wallets.csproj" />
+    <ProjectReference Include="Modules\Payments\Senzy.Modules.Payments.csproj" />
+    <ProjectReference Include="Modules\Funding\Senzy.Modules.Funding.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />

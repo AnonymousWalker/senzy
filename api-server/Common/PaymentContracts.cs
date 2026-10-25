@@ -1,5 +1,7 @@
 using Senzy.Api.Infrastructure.Persistence.Models;
 
+using Senzy.Modules.Payments;
+
 namespace Senzy.Api.Common;
 
 public sealed record SendPaymentRequest(

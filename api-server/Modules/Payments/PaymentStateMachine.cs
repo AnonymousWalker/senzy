@@ -1,6 +1,12 @@
-using Senzy.Api.Infrastructure.Persistence.Models;
+namespace Senzy.Modules.Payments;
 
-namespace Senzy.Api.Features.Payments;
+public enum PaymentStatus
+{
+  Pending,
+  Posted,
+  Failed,
+  Reversed
+}
 
 public static class PaymentStateMachine
 {
