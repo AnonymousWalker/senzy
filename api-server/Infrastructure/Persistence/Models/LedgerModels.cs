@@ -53,5 +53,3 @@ public sealed class LedgerEntry
   public long AmountMinor { get; set; }
   public string Currency { get; set; } = "USD";
 }
-
-public sealed class InsufficientFundsException : Exception;

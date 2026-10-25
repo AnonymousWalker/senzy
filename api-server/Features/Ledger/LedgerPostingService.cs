@@ -4,7 +4,9 @@ using Senzy.Modules.Ledger;
 
 namespace Senzy.Api.Features.Ledger;
 
-public sealed class LedgerPostingService(SenzyDbContext? db = null) : ILedgerPostingService
+public sealed class LedgerPostingService(
+    SenzyDbContext? db = null,
+    LedgerPostingEngine? engine = null) : ILedgerPostingService
 {
   public LedgerPostingResult Post(LedgerPostingRequest request, CancellationToken cancellationToken = default)
   {
@@ -18,23 +20,15 @@ public sealed class LedgerPostingService(SenzyDbContext? db = null) : ILedgerPos
     var credit = db.LedgerAccounts.Local.SingleOrDefault(account => account.Id == request.CreditAccountId)
         ?? throw new InvalidOperationException("The credit ledger account must be loaded before posting.");
 
-    var transaction = Post(
-        debit,
-        credit,
-        request.AmountMinor,
-        request.Kind switch
-        {
-          LedgerMovementKind.Payment => LedgerTransactionKind.Payment,
-          LedgerMovementKind.Reversal => LedgerTransactionKind.Reversal,
-          LedgerMovementKind.FundingIn => LedgerTransactionKind.FundingIn,
-          LedgerMovementKind.FundingOut => LedgerTransactionKind.FundingOut,
-          LedgerMovementKind.SandboxOpeningBalance => LedgerTransactionKind.SandboxOpeningBalance,
-          _ => throw new ArgumentOutOfRangeException(nameof(request.Kind))
-        },
-        request.CreatedAt,
-        request.PaymentId,
-        request.ReversesTransactionId,
-        request.FundingTransferId);
+    var plan = (engine ?? new LedgerPostingEngine()).CreatePlan(
+        new(debit.Id, debit.Currency, debit.BalanceMinor, debit.AllowNegative),
+        new(credit.Id, credit.Currency, credit.BalanceMinor, credit.AllowNegative),
+        request);
+
+    debit.BalanceMinor -= plan.AmountMinor;
+    credit.BalanceMinor += plan.AmountMinor;
+
+    var transaction = CreateTransaction(plan);
 
     db.LedgerTransactions.Add(transaction);
     return new(transaction.Id);
@@ -50,41 +44,38 @@ public sealed class LedgerPostingService(SenzyDbContext? db = null) : ILedgerPos
       Guid? reversesTransactionId = null,
       Guid? fundingTransferId = null)
   {
-    if (amountMinor <= 0)
-    {
-      throw new ArgumentOutOfRangeException(nameof(amountMinor));
-    }
+    var request = new LedgerPostingRequest(
+        debitAccount.Id,
+        creditAccount.Id,
+        amountMinor,
+        debitAccount.Currency,
+        ToMovementKind(kind),
+        createdAt,
+        paymentId,
+        reversesTransactionId,
+        fundingTransferId);
 
-    if (debitAccount.Id == creditAccount.Id)
-    {
-      throw new InvalidOperationException("Ledger accounts must differ.");
-    }
+    var plan = (engine ?? new LedgerPostingEngine()).CreatePlan(
+        new(debitAccount.Id, debitAccount.Currency, debitAccount.BalanceMinor, debitAccount.AllowNegative),
+        new(creditAccount.Id, creditAccount.Currency, creditAccount.BalanceMinor, creditAccount.AllowNegative),
+        request);
 
-    if (!string.Equals(debitAccount.Currency, creditAccount.Currency, StringComparison.Ordinal)
-        || debitAccount.Currency != "USD")
-    {
-      throw new InvalidOperationException("Ledger currencies must match.");
-    }
+    debitAccount.BalanceMinor -= plan.AmountMinor;
+    creditAccount.BalanceMinor += plan.AmountMinor;
 
-    if (!debitAccount.AllowNegative && debitAccount.BalanceMinor < amountMinor)
-    {
-      throw new InsufficientFundsException();
-    }
+    return CreateTransaction(plan);
+  }
 
-    checked
-    {
-      debitAccount.BalanceMinor -= amountMinor;
-      creditAccount.BalanceMinor += amountMinor;
-    }
-
+  private static LedgerTransaction CreateTransaction(LedgerPostingPlan plan)
+  {
     var transaction = new LedgerTransaction
     {
-      PaymentId = paymentId,
-      FundingTransferId = fundingTransferId,
-      ReversesTransactionId = reversesTransactionId,
-      Kind = kind,
-      Currency = debitAccount.Currency,
-      CreatedAt = createdAt
+      PaymentId = plan.PaymentId,
+      FundingTransferId = plan.FundingTransferId,
+      ReversesTransactionId = plan.ReversesTransactionId,
+      Kind = ToLedgerKind(plan.Kind),
+      Currency = plan.Currency,
+      CreatedAt = plan.CreatedAt
     };
 
     transaction.Entries =
@@ -92,21 +83,41 @@ public sealed class LedgerPostingService(SenzyDbContext? db = null) : ILedgerPos
       new()
       {
         LedgerTransactionId = transaction.Id,
-        LedgerAccountId = debitAccount.Id,
+        LedgerAccountId = plan.DebitAccountId,
         Direction = LedgerEntryDirection.Debit,
-        AmountMinor = amountMinor,
+        AmountMinor = plan.AmountMinor,
         Currency = transaction.Currency
       },
       new()
       {
         LedgerTransactionId = transaction.Id,
-        LedgerAccountId = creditAccount.Id,
+        LedgerAccountId = plan.CreditAccountId,
         Direction = LedgerEntryDirection.Credit,
-        AmountMinor = amountMinor,
+        AmountMinor = plan.AmountMinor,
         Currency = transaction.Currency
       }
     ];
 
     return transaction;
   }
+
+  private static LedgerMovementKind ToMovementKind(LedgerTransactionKind kind) => kind switch
+  {
+    LedgerTransactionKind.Payment => LedgerMovementKind.Payment,
+    LedgerTransactionKind.Reversal => LedgerMovementKind.Reversal,
+    LedgerTransactionKind.FundingIn => LedgerMovementKind.FundingIn,
+    LedgerTransactionKind.FundingOut => LedgerMovementKind.FundingOut,
+    LedgerTransactionKind.SandboxOpeningBalance => LedgerMovementKind.SandboxOpeningBalance,
+    _ => throw new ArgumentOutOfRangeException(nameof(kind))
+  };
+
+  private static LedgerTransactionKind ToLedgerKind(LedgerMovementKind kind) => kind switch
+  {
+    LedgerMovementKind.Payment => LedgerTransactionKind.Payment,
+    LedgerMovementKind.Reversal => LedgerTransactionKind.Reversal,
+    LedgerMovementKind.FundingIn => LedgerTransactionKind.FundingIn,
+    LedgerMovementKind.FundingOut => LedgerTransactionKind.FundingOut,
+    LedgerMovementKind.SandboxOpeningBalance => LedgerTransactionKind.SandboxOpeningBalance,
+    _ => throw new ArgumentOutOfRangeException(nameof(kind))
+  };
 }
