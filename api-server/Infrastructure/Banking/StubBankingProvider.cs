@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using Senzy.Api.Features.Banking;
+using Senzy.Infrastructure.Banking;
 
-namespace Senzy.Api.Infrastructure.Banking;
+namespace Senzy.Infrastructure.Banking;
 
 public sealed class StubBankingProvider : IBankingProvider
 {

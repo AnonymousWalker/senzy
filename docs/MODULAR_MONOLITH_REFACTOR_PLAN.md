@@ -56,7 +56,7 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - [x] Keep Operations as the compatibility endpoint surface.
 - [x] Establish logical Reporting and Reconciliation ownership.
 - [ ] Remove remaining alternate cross-module write paths.
-- [x] Extract `Senzy.Infrastructure` for EF persistence and migrations; provider adapters and outbox mechanics remain host-owned until their contracts move.
+- [x] Extract `Senzy.Infrastructure` for EF persistence, migrations, and the sandbox banking provider; outbox mechanics remain host-owned until the Notifications handler contract moves.
 - [ ] Keep module implementations and persistence mappings internal to their assemblies.
 - [ ] Add module registration methods at the composition root.
 
@@ -97,6 +97,7 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - **Step 2:** Complete for the current slice. Ledger posting uses `ILedgerPostingStore` and the EF adapter remains in infrastructure.
 - **Step 3:** Partially complete. Ledger implementation and Wallets movement coordination are in their module assemblies; thin host adapters remain for EF transaction integration and HTTP error translation.
 - **Infrastructure unblock:** `Senzy.Infrastructure` now exposes `ITransactionContext`; the host provides the EF/PostgreSQL implementation. Payments and Funding can depend on the transaction contract without referencing `Senzy.Api`.
-- **Infrastructure extraction:** EF persistence models, `SenzyDbContext`, migrations, transaction adapter, and Wallets/Ledger stores now compile in `Senzy.Infrastructure`; API remains the composition root and retains host-only Banking/Outbox adapters.
+- **Infrastructure extraction:** EF persistence models, `SenzyDbContext`, migrations, transaction adapter, Wallets/Ledger stores, and the sandbox banking provider now compile in `Senzy.Infrastructure`; API remains the composition root and retains only host-specific Outbox mechanics.
+- **Provider adapter extraction:** The sandbox banking contract and provider now compile in `Senzy.Infrastructure`; the API retains only the `/v1` route composition surface.
 - **Step 4:** Domain slice complete. Payment state transitions are in `Senzy.Modules.Payments`; the application workflow still remains in the host.
 - **Step 5:** Domain slice complete. Funding types are in `Senzy.Modules.Funding`; the application workflow still remains in the host.

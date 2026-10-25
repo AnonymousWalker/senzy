@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Senzy.Infrastructure.Banking;
 using System.Text.Json.Serialization;
 using Senzy.Api.Common;
 using Senzy.Api.Features.Profiles;

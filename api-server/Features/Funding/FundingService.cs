@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Senzy.Api.Common;
-using Senzy.Api.Features.Banking;
+using Senzy.Infrastructure.Banking;
 using Senzy.Api.Features.Operations;
 using Senzy.Api.Features.Wallets;
 using Senzy.Api.Infrastructure.Persistence;

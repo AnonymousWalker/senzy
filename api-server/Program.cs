@@ -31,7 +31,7 @@ using Senzy.Modules.Wallets;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Infrastructure.Transactions;
-using Senzy.Api.Infrastructure.Banking;
+using Senzy.Infrastructure.Banking;
 
 var builder = WebApplication.CreateBuilder(args);
 

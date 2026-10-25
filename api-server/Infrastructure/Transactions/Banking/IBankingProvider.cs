@@ -1,4 +1,4 @@
-namespace Senzy.Api.Features.Banking;
+namespace Senzy.Infrastructure.Banking;
 
 public record BankingInstitution(string Id, string Name, string? LogoUrl);
 

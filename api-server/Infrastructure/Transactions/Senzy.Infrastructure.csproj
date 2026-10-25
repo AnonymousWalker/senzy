@@ -14,6 +14,7 @@
     <Compile Include="../Persistence/LedgerPostingStore.cs" />
     <Compile Include="../Persistence/EfTransactionContext.cs" />
     <Compile Include="../Persistence/Migrations/**/*.cs" />
+    <Compile Include="../Banking/StubBankingProvider.cs" />
     <ProjectReference Include="../../Modules/Ledger/Senzy.Modules.Ledger.csproj" />
     <ProjectReference Include="../../Modules/Wallets/Senzy.Modules.Wallets.csproj" />
     <ProjectReference Include="../../Modules/Payments/Senzy.Modules.Payments.csproj" />
