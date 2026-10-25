@@ -90,3 +90,11 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 5. Harden outbox consumers and observability.
 6. Finish replica, worker, and sandbox-state hardening.
 7. Run concurrency, recovery, restore, and acceptance validation.
+
+## Current extraction-wave status
+
+- **Step 1:** Partially complete. Wallet policy persistence is behind `IWalletPolicyStore`; wallet account locking and movement persistence remain.
+- **Step 2:** Complete for the current slice. Ledger posting uses `ILedgerPostingStore` and the EF adapter remains in infrastructure.
+- **Step 3:** Partially complete. Ledger implementation is in `Senzy.Modules.Ledger`; Wallets movement implementation remains host-bound until its account adapter is complete.
+- **Step 4:** Domain slice complete. Payment state transitions are in `Senzy.Modules.Payments`; the application workflow still remains in the host.
+- **Step 5:** Domain slice complete. Funding types are in `Senzy.Modules.Funding`; the application workflow still remains in the host.
