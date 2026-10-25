@@ -1,15 +1,6 @@
+using Senzy.Modules.Funding;
+
 namespace Senzy.Api.Infrastructure.Persistence.Models;
-
-public enum FundingDirection
-{
-  CashIn,
-  CashOut
-}
-
-public enum FundingStatus
-{
-  Posted
-}
 
 public sealed class FundingTransfer
 {
