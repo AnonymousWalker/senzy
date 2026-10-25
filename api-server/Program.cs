@@ -114,6 +114,7 @@ builder.Services.AddScoped<SandboxWalletService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<FundingService>();
 builder.Services.AddScoped<WalletPolicy>();
+builder.Services.AddSingleton<WalletPolicyEngine>();
 builder.Services.AddScoped<IWalletPolicy>(services => services.GetRequiredService<WalletPolicy>());
 builder.Services.AddScoped<IWalletMovementService, WalletMovementService>();
 builder.Services.AddScoped<RecipientDirectory>();

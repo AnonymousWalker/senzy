@@ -11,7 +11,11 @@ namespace Senzy.Api.Features.Wallets;
 /// Owns wallet controls and outbound movement policy while participating in the
 /// caller's PostgreSQL transaction. The service never commits independently.
 /// </summary>
-public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfiguration configuration) : IWalletPolicy
+public sealed class WalletPolicy(
+    SenzyDbContext db,
+    TimeProvider clock,
+    IConfiguration configuration,
+    WalletPolicyEngine engine) : IWalletPolicy
 {
   public long DailyLimitMinor => configuration.GetValue("Operations:DailyOutboundLimitMinor", 1_000_000L);
 
@@ -42,15 +46,21 @@ public sealed class WalletPolicy(SenzyDbContext db, TimeProvider clock, IConfigu
 
   public async Task EnsureAllowedAsync(Guid actorId, long amountMinor, CancellationToken ct)
   {
-    if (await IsFrozenAsync(actorId, ct))
+    var frozen = await IsFrozenAsync(actorId, ct);
+    var usedToday = await UsedTodayAsync(actorId, ct);
+
+    try
+    {
+      engine.EnsureOutboundAllowed(frozen, usedToday, DailyLimitMinor, amountMinor);
+    }
+    catch (WalletFrozenException)
     {
       throw new PaymentCommandException(
           409,
           "wallet_frozen",
           "Your wallet is frozen. Unfreeze it before moving money out.");
     }
-
-    if (amountMinor > DailyLimitMinor - await UsedTodayAsync(actorId, ct))
+    catch (DailyLimitExceededException)
     {
       throw new PaymentCommandException(
           409,
