@@ -140,6 +140,6 @@ Required multi-instance scenarios include session revocation, shared keys, idemp
 
 Implemented: Wallets movement/policy boundary, Ledger posting contract, per-consumer outbox schema and migration, Notifications handler extraction, Reporting and Reconciliation logical ownership, and architecture dependency tests.
 
-Partially implemented: worker-role configuration and PostgreSQL coordination for reconciliation scheduling. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session.
+Partially implemented: worker-role configuration and PostgreSQL coordination for reconciliation scheduling. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session. Architecture tests now verify that selected scale-critical contracts do not expose EF Core, ASP.NET, persistence, or queryable types and that workflows do not depend on concrete financial implementations across module boundaries.
 
 Not yet complete: class-library extraction, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, connection/lock measurements, and multi-instance/recovery validation.
