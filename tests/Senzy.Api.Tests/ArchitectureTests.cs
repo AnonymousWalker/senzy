@@ -10,43 +10,43 @@ namespace Senzy.Api.Tests;
 
 public sealed class ArchitectureTests
 {
-    [Fact]
-    public void PaymentWorkflowUsesModuleContractsForMovementAndRecipients()
-    {
-        var parameterTypes = typeof(PaymentService).GetConstructors().Single()
-            .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+  [Fact]
+  public void PaymentWorkflowUsesModuleContractsForMovementAndRecipients()
+  {
+    var parameterTypes = typeof(PaymentService).GetConstructors().Single()
+        .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
-        Assert.Contains(typeof(IWalletMovementService), parameterTypes);
-        Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
-        Assert.DoesNotContain(typeof(WalletPolicy), parameterTypes);
-    }
+    Assert.Contains(typeof(IWalletMovementService), parameterTypes);
+    Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
+    Assert.DoesNotContain(typeof(WalletPolicy), parameterTypes);
+  }
 
-    [Fact]
-    public void FundingWorkflowUsesWalletMovementContract()
-    {
-        var parameterTypes = typeof(FundingService).GetConstructors().Single()
-            .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+  [Fact]
+  public void FundingWorkflowUsesWalletMovementContract()
+  {
+    var parameterTypes = typeof(FundingService).GetConstructors().Single()
+        .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
-        Assert.Contains(typeof(IWalletMovementService), parameterTypes);
-        Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
-    }
+    Assert.Contains(typeof(IWalletMovementService), parameterTypes);
+    Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
+  }
 
-    [Fact]
-    public void WalletMovementUsesLedgerContract()
-    {
-        var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
-            .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+  [Fact]
+  public void WalletMovementUsesLedgerContract()
+  {
+    var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
+        .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
-        Assert.Contains(typeof(ILedgerPostingService), parameterTypes);
-        Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
-    }
+    Assert.Contains(typeof(ILedgerPostingService), parameterTypes);
+    Assert.DoesNotContain(typeof(LedgerPostingService), parameterTypes);
+  }
 
-    [Fact]
-    public void OutboxInfrastructureDelegatesBusinessHandlingToNotifications()
-    {
-        var parameterTypes = typeof(OutboxDispatcher).GetConstructors().Single()
-            .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+  [Fact]
+  public void OutboxInfrastructureDelegatesBusinessHandlingToNotifications()
+  {
+    var parameterTypes = typeof(OutboxDispatcher).GetConstructors().Single()
+        .GetParameters().Select(parameter => parameter.ParameterType).ToList();
 
-        Assert.Contains(typeof(Senzy.Api.Features.Notifications.NotificationEventHandler), parameterTypes);
-    }
+    Assert.Contains(typeof(Senzy.Api.Features.Notifications.NotificationEventHandler), parameterTypes);
+  }
 }

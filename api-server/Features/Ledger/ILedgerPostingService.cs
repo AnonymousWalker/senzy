@@ -2,22 +2,22 @@ namespace Senzy.Api.Features.Ledger;
 
 public enum LedgerAccountRole
 {
-    Wallet,
-    SandboxSettlement
+  Wallet,
+  SandboxSettlement
 }
 
 public enum LedgerMovementKind
 {
-    Payment,
-    Reversal,
-    FundingIn,
-    FundingOut,
-    SandboxOpeningBalance
+  Payment,
+  Reversal,
+  FundingIn,
+  FundingOut,
+  SandboxOpeningBalance
 }
 
 public interface ILedgerPostingService
 {
-    LedgerPostingResult Post(LedgerPostingRequest request, CancellationToken cancellationToken = default);
+  LedgerPostingResult Post(LedgerPostingRequest request, CancellationToken cancellationToken = default);
 }
 
 public sealed record LedgerPostingRequest(

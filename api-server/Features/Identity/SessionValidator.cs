@@ -5,11 +5,11 @@ namespace Senzy.Api.Features.Identity;
 
 public interface ISessionValidator
 {
-    Task<bool> IsValidAsync(ClaimsPrincipal principal);
+  Task<bool> IsValidAsync(ClaimsPrincipal principal);
 }
 
 public sealed class SessionValidator(SignInManager<ApplicationUser> signIn) : ISessionValidator
 {
-    public async Task<bool> IsValidAsync(ClaimsPrincipal principal) =>
-        await signIn.ValidateSecurityStampAsync(principal) is not null;
+  public async Task<bool> IsValidAsync(ClaimsPrincipal principal) =>
+      await signIn.ValidateSecurityStampAsync(principal) is not null;
 }

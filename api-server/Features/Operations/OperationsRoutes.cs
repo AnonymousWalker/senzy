@@ -9,43 +9,74 @@ namespace Senzy.Api.Features.Operations;
 
 public static class OperationsRoutes
 {
-    public static void MapOperationsRoutes(this WebApplication app)
+  public static void MapOperationsRoutes(this WebApplication app)
+  {
+    var group = app.MapGroup("/v1/operations")
+        .RequireAuthorization()
+        .RequireRateLimiting("payments")
+        .WithTags("Operations");
+
+    group.MapGet(
+        "/status",
+        async (
+            ClaimsPrincipal actor,
+            IWalletPolicy walletPolicy,
+            ReconciliationService reconciliation,
+            CancellationToken ct) =>
+        {
+          var actorId = ProfileRoutes.ActorId(actor);
+          var frozen = await walletPolicy.IsFrozenAsync(actorId, ct);
+
+          return Results.Ok(new OperationsStatusResponse(
+              frozen,
+              walletPolicy.DailyLimitMinor,
+              await walletPolicy.UsedTodayAsync(actorId, ct),
+              "USD",
+              await reconciliation.LatestAsync(ct)));
+        })
+        .WithName("GetOperationsStatus")
+        .Produces<OperationsStatusResponse>();
+
+    group.MapPost(
+        "/freeze",
+        async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
+        {
+          var actorId = ProfileRoutes.ActorId(actor);
+          await walletPolicy.SetFrozenAsync(actorId, true, ct);
+          return Results.NoContent();
+        })
+        .WithName("FreezeWallet")
+        .Produces(204);
+
+    group.MapPost(
+        "/unfreeze",
+        async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
+        {
+          var actorId = ProfileRoutes.ActorId(actor);
+          await walletPolicy.SetFrozenAsync(actorId, false, ct);
+          return Results.NoContent();
+        })
+        .WithName("UnfreezeWallet")
+        .Produces(204);
+
+    group.MapGet(
+        "/transactions",
+        async (int? limit, ClaimsPrincipal actor, TransactionHistoryService history, CancellationToken ct) =>
+        {
+          var actorId = ProfileRoutes.ActorId(actor);
+          return Results.Ok(await history.ListAsync(actorId, limit ?? 50, ct));
+        })
+        .WithName("ListTransactionHistory")
+        .Produces<TransactionHistoryResponse>();
+
+    if (app.Environment.IsDevelopment())
     {
-        var group = app.MapGroup("/v1/operations").RequireAuthorization().RequireRateLimiting("payments").WithTags("Operations");
-        group.MapGet("/status", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy,
-            ReconciliationService reconciliation, CancellationToken ct) =>
-        {
-            var actorId = ProfileRoutes.ActorId(actor);
-            var frozen = await walletPolicy.IsFrozenAsync(actorId, ct);
-            return Results.Ok(new OperationsStatusResponse(frozen, walletPolicy.DailyLimitMinor,
-                await walletPolicy.UsedTodayAsync(actorId, ct), "USD", await reconciliation.LatestAsync(ct)));
-        }).WithName("GetOperationsStatus").Produces<OperationsStatusResponse>();
-
-        group.MapPost("/freeze", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
-        {
-            var actorId = ProfileRoutes.ActorId(actor);
-            await walletPolicy.SetFrozenAsync(actorId, true, ct);
-            return Results.NoContent();
-        }).WithName("FreezeWallet").Produces(204);
-
-        group.MapPost("/unfreeze", async (ClaimsPrincipal actor, IWalletPolicy walletPolicy, CancellationToken ct) =>
-        {
-            var actorId = ProfileRoutes.ActorId(actor);
-            await walletPolicy.SetFrozenAsync(actorId, false, ct);
-            return Results.NoContent();
-        }).WithName("UnfreezeWallet").Produces(204);
-
-        group.MapGet("/transactions", async (int? limit, ClaimsPrincipal actor, TransactionHistoryService history, CancellationToken ct) =>
-        {
-            var actorId = ProfileRoutes.ActorId(actor);
-            return Results.Ok(await history.ListAsync(actorId, limit ?? 50, ct));
-        }).WithName("ListTransactionHistory").Produces<TransactionHistoryResponse>();
-
-        if (app.Environment.IsDevelopment())
-        {
-            group.MapPost("/reconciliation", async (ReconciliationService reconciliation, CancellationToken ct) =>
-                Results.Ok(await reconciliation.RunAsync(ct)))
-                .WithName("RunReconciliation").Produces<ReconciliationResponse>();
-        }
+      group.MapPost(
+          "/reconciliation",
+          async (ReconciliationService reconciliation, CancellationToken ct) =>
+              Results.Ok(await reconciliation.RunAsync(ct)))
+          .WithName("RunReconciliation")
+          .Produces<ReconciliationResponse>();
     }
+  }
 }

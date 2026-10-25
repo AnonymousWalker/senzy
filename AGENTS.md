@@ -12,6 +12,7 @@ Load only the guidance needed for the files being changed:
 - Performance, reliability, capacity, recovery, or observability: `docs/OPERATING_TARGETS.md`.
 - Authentication, authorization, sensitive data, provider boundaries, logging, or public exposure: `docs/THREAT_MODEL.md`.
 - Local setup, migrations, Compose, and repository-wide commands: `README.md`.
+- C# layout in `api-server/`: the **C# readability** section below.
 
 `docs/PHASE_0.md` and `docs/PHASE_1.md` are verification records, not implementation instructions. Do not update them to claim checks that were not actually run.
 
@@ -49,6 +50,18 @@ Senzy is a pragmatic layered modular monolith: one ASP.NET Core deployable, one 
 - Banking remains a Development-only in-memory stub. Reject raw routing/account fields and clearly mark all responses and UI as sandbox data.
 - The repository is not approved for real money, real bank linking, or public deployment. Do not weaken environment guards or describe simulated records as settled funds.
 - Revisit `docs/THREAT_MODEL.md` when changing authentication, ledger behavior, provider integration, logging/data retention, or deployment exposure; add abuse-case tests with the change.
+
+## C# readability
+
+Hand-written C# in `api-server/` should scan as structured code, not a packed essay. Keep 2-space indent to match `.editorconfig`. Do not reformat generated EF migrations.
+
+- Put one fluent call per line (`MapGet` / `MapPost`, then `.WithName`, `.Produces`, `.ProducesProblem`).
+- Put a blank line between route groups and between distinct steps inside a method (validate, lock, mutate, commit).
+- Split long parameter lists, constructor arguments, and record payloads one item per line.
+- Use braces on `if`, `try`, and `catch`. Do not write one-line `if (...) return` or `try { ... } catch { ... }` bodies.
+- Split long boolean conditions across lines with the operator at the start of the continuation.
+- Prefer a local name for a long compound condition over packing it into a single `if`.
+- Leave generated migration files untouched.
 
 ## HTTP contracts and clients
 

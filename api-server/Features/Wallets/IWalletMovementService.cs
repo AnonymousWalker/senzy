@@ -19,5 +19,5 @@ public sealed record WalletMovementResult(Guid LedgerTransactionId);
 
 public interface IWalletMovementService
 {
-    Task<WalletMovementResult> MoveAsync(WalletMovementRequest request, CancellationToken ct);
+  Task<WalletMovementResult> MoveAsync(WalletMovementRequest request, CancellationToken ct);
 }
