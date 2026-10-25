@@ -9,6 +9,7 @@ using Senzy.Api.Common;
 using Senzy.Api.Features.Payments;
 using Senzy.Api.Infrastructure.Persistence.Models;
 using Senzy.Api.Infrastructure.Persistence;
+using Senzy.Modules.Payments;
 using Xunit;
 
 namespace Senzy.Api.Tests;

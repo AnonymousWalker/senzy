@@ -10,6 +10,7 @@ using Senzy.Api.Features.Reconciliation;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
 using Senzy.Api.Infrastructure.Persistence.Models;
+using Senzy.Modules.Funding;
 using Xunit;
 
 namespace Senzy.Api.Tests;

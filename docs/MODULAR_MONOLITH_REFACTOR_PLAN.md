@@ -31,15 +31,15 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - [x] Extract Ledger and Wallets contract assemblies.
 - [x] Move Ledger invariant planning into `Senzy.Modules.Ledger`.
 - [x] Move Wallet freeze and daily-limit decisions into `Senzy.Modules.Wallets`.
-- [ ] Add Wallets-owned persistence adapters for account lookup, locking, controls, and movement persistence.
-- [ ] Add Ledger-owned persistence adapters for accounts, postings, entries, and balance projections.
+- [x] Add Wallets-owned persistence adapters for account lookup, locking, controls, balance reads, and movement persistence.
+- [x] Add Ledger-owned persistence adapters for accounts, postings, entries, and balance projections.
 - [ ] Move Wallets and Ledger implementations out of `Senzy.Api`.
 - [ ] Verify one PostgreSQL transaction across Payments/Funding, Wallets, Ledger, idempotency, and outbox.
 
 ## Payments and Funding assemblies
 
-- [ ] Extract Payments application workflows into `Senzy.Modules.Payments`.
-- [ ] Extract Funding application workflows into `Senzy.Modules.Funding`.
+- [x] Extract Payments application workflows into `Senzy.Modules.Payments`.
+- [x] Extract Funding application workflows into `Senzy.Modules.Funding`.
 - [ ] Keep idempotency, business state, outbox creation, and commit ownership inside the initiating module.
 - [ ] Remove direct access from Payments and Funding to Wallets/Ledger persistence records.
 
@@ -99,5 +99,5 @@ This is the execution checklist for the approved design in [BACKEND_ARCHITECTURE
 - **Infrastructure unblock:** `Senzy.Infrastructure` now exposes `ITransactionContext`; the host provides the EF/PostgreSQL implementation. Payments and Funding can depend on the transaction contract without referencing `Senzy.Api`.
 - **Infrastructure extraction:** EF persistence models, `SenzyDbContext`, migrations, transaction adapter, Wallets/Ledger stores, and the sandbox banking provider now compile in `Senzy.Infrastructure`; API remains the composition root and retains only host-specific Outbox mechanics.
 - **Provider adapter extraction:** The sandbox banking contract and provider now compile in `Senzy.Infrastructure`; the API retains only the `/v1` route composition surface.
-- **Step 4:** Domain slice complete. Payment state transitions are in `Senzy.Modules.Payments`; the application workflow still remains in the host.
-- **Step 5:** Domain slice complete. Funding types are in `Senzy.Modules.Funding`; the application workflow still remains in the host.
+- **Step 4:** Complete for the current assembly slice. Payment application workflow, state transitions, idempotency coordination, and response result types are in `Senzy.Modules.Payments`; API routes map HTTP DTOs to module commands/results.
+- **Step 5:** Complete for the current assembly slice. Funding application workflow, idempotency coordination, provider boundary, and response result types are in `Senzy.Modules.Funding`; API routes map HTTP DTOs to module commands/results.

@@ -1,12 +1,14 @@
 using Senzy.Api.Features.Ledger;
 using Senzy.Api.Features.Wallets;
 using Senzy.Api.Features.Funding;
-using Senzy.Api.Features.Banking;
-using Senzy.Api.Features.Payments;
+using Senzy.Infrastructure.Banking;
 using Senzy.Api.Features.Profiles;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Modules.Ledger;
 using Senzy.Modules.Wallets;
+using Senzy.Modules.Payments;
+using Senzy.Modules.Funding;
+using System.Xml.Linq;
 using System.Collections;
 using System.Reflection;
 using System.Linq;
@@ -63,6 +65,7 @@ public sealed class ArchitectureTests
     {
       typeof(IWalletPolicy),
       typeof(IWalletMovementService),
+      typeof(IWalletBalanceReader),
       typeof(ILedgerPostingService),
       typeof(IBankingProvider)
     };
@@ -133,6 +136,120 @@ public sealed class ArchitectureTests
     Assert.Contains(typeof(IWalletMovementStore), parameterTypes);
     Assert.DoesNotContain(typeof(Senzy.Api.Infrastructure.Persistence.SenzyDbContext), parameterTypes);
   }
+
+  [Fact]
+  public void ModuleProjectsDoNotReferenceTheApiHost()
+  {
+    foreach (var project in ModuleProjects())
+    {
+      var document = XDocument.Load(project);
+      var references = document.Descendants("ProjectReference")
+          .Select(reference => reference.Attribute("Include")?.Value ?? "");
+
+      Assert.DoesNotContain(references, reference =>
+          reference.EndsWith("Senzy.Api.csproj", StringComparison.OrdinalIgnoreCase));
+    }
+  }
+
+  [Fact]
+  public void ModuleProjectReferencesAreAcyclic()
+  {
+    var projects = ModuleProjects().ToDictionary(
+        path => Path.GetFileNameWithoutExtension(path),
+        path => ProjectDependencies(path));
+
+    var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var project in projects.Keys)
+    {
+      Assert.True(Visit(project), $"Circular module dependency detected at {project}.");
+    }
+
+    bool Visit(string project)
+    {
+      if (visiting.Contains(project))
+      {
+        return false;
+      }
+
+      if (!visited.Add(project))
+      {
+        return true;
+      }
+
+      visiting.Add(project);
+      foreach (var dependency in projects[project].Where(projects.ContainsKey))
+      {
+        if (!Visit(dependency))
+        {
+          return false;
+        }
+      }
+
+      visiting.Remove(project);
+      return true;
+    }
+  }
+
+  [Fact]
+  public void FinancialWorkflowsAreOwnedByTheirModuleAssemblies()
+  {
+    Assert.Equal(typeof(PaymentStateMachine).Assembly, typeof(PaymentService).Assembly);
+    Assert.Equal(typeof(FundingDirection).Assembly, typeof(FundingService).Assembly);
+    Assert.DoesNotContain("Senzy.Api", typeof(PaymentService).Assembly.GetName().Name);
+    Assert.DoesNotContain("Senzy.Api", typeof(FundingService).Assembly.GetName().Name);
+  }
+
+  [Fact]
+  public void FinancialModulesDoNotWriteForeignFinancialRecords()
+  {
+    var moduleRoots = new[]
+    {
+      Path.Combine(RepositoryRoot(), "api-server/Modules/Payments"),
+      Path.Combine(RepositoryRoot(), "api-server/Modules/Funding")
+    };
+
+    var forbidden = new[]
+    {
+      "LedgerAccounts",
+      "LedgerTransactions",
+      "LedgerEntries",
+      "WalletControls",
+      "WalletPolicyStore",
+      "WalletMovementStore",
+      "LedgerPostingStore"
+    };
+
+    foreach (var root in moduleRoots)
+    {
+      foreach (var source in Directory.EnumerateFiles(root, "*.cs"))
+      {
+        var text = File.ReadAllText(source);
+        Assert.DoesNotContain(forbidden, token => text.Contains(token, StringComparison.Ordinal));
+      }
+    }
+  }
+
+  private static IReadOnlyList<string> ModuleProjects() =>
+      Directory.GetFiles(
+          Path.Combine(RepositoryRoot(), "api-server/Modules"),
+          "*.csproj",
+          SearchOption.AllDirectories);
+
+  private static IReadOnlyList<string> ProjectDependencies(string project)
+  {
+    var directory = Path.GetDirectoryName(project)!;
+    var document = XDocument.Load(project);
+    return document.Descendants("ProjectReference")
+        .Select(reference => reference.Attribute("Include")?.Value)
+        .Where(value => value is not null)
+        .Select(value => Path.GetFileNameWithoutExtension(Path.GetFullPath(Path.Combine(directory, value!))))
+        .ToList();
+  }
+
+  private static string RepositoryRoot() =>
+      Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 
   private static IEnumerable<Type> FlattenTypes(Type type)
   {
