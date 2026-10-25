@@ -61,7 +61,7 @@ public sealed class WalletPolicy(
 }
 
 public sealed class WalletMovementService(
-    SenzyDbContext db,
+    IWalletMovementStore store,
     WalletPolicy policy,
     ILedgerPostingService ledger,
     TimeProvider clock) : IWalletMovementService
@@ -73,29 +73,23 @@ public sealed class WalletMovementService(
       throw new PaymentCommandException(400, "invalid_movement", "The wallet movement is invalid.");
     }
 
-    var ids = await db.LedgerAccounts.AsNoTracking()
-        .Where(account =>
-            ((account.OwnerUserId == request.DebitOwnerUserId && account.Purpose == ToPurpose(request.DebitRole))
-                || (account.OwnerUserId == request.CreditOwnerUserId && account.Purpose == ToPurpose(request.CreditRole)))
-            && account.Currency == request.Currency)
-        .Select(account => account.Id)
-        .ToListAsync(ct);
+    var accounts = await store.LoadAndLockAsync(
+        request.DebitOwnerUserId,
+        request.DebitRole,
+        request.CreditOwnerUserId,
+        request.CreditRole,
+        request.Currency,
+        ct);
 
-    if (ids.Count != 2)
+    if (accounts.Count != 2)
     {
       throw new PaymentCommandException(409, "wallet_unavailable", "A simulated wallet is unavailable.");
     }
 
-    var low = ids.Min();
-    var high = ids.Max();
-    var accounts = await db.LedgerAccounts.FromSqlInterpolated(
-        $"""SELECT * FROM "LedgerAccounts" WHERE "Id" IN ({low}, {high}) ORDER BY "Id" FOR UPDATE""")
-        .ToListAsync(ct);
-
     var debit = accounts.Single(account =>
-        account.OwnerUserId == request.DebitOwnerUserId && account.Purpose == ToPurpose(request.DebitRole));
+        account.OwnerUserId == request.DebitOwnerUserId && account.Role == request.DebitRole);
     var credit = accounts.Single(account =>
-        account.OwnerUserId == request.CreditOwnerUserId && account.Purpose == ToPurpose(request.CreditRole));
+        account.OwnerUserId == request.CreditOwnerUserId && account.Role == request.CreditRole);
 
     if (request.EnforceOutboundPolicy)
     {
@@ -128,10 +122,4 @@ public sealed class WalletMovementService(
     }
   }
 
-  private static LedgerAccountPurpose ToPurpose(LedgerAccountRole role) => role switch
-  {
-    LedgerAccountRole.Wallet => LedgerAccountPurpose.Wallet,
-    LedgerAccountRole.SandboxSettlement => LedgerAccountPurpose.SandboxIssuance,
-    _ => throw new ArgumentOutOfRangeException(nameof(role))
-  };
 }

@@ -124,6 +124,16 @@ public sealed class ArchitectureTests
     Assert.DoesNotContain(typeof(Senzy.Api.Infrastructure.Persistence.SenzyDbContext), parameterTypes);
   }
 
+  [Fact]
+  public void WalletMovementUsesPersistenceContract()
+  {
+    var parameterTypes = typeof(WalletMovementService).GetConstructors().Single()
+        .GetParameters().Select(parameter => parameter.ParameterType).ToList();
+
+    Assert.Contains(typeof(IWalletMovementStore), parameterTypes);
+    Assert.DoesNotContain(typeof(Senzy.Api.Infrastructure.Persistence.SenzyDbContext), parameterTypes);
+  }
+
   private static IEnumerable<Type> FlattenTypes(Type type)
   {
     if (type.IsByRef)
