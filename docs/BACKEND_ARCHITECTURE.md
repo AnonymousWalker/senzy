@@ -126,7 +126,7 @@ Each step must leave the API runnable and preserve `/v1` behavior.
 3. **Per-consumer outbox** — migrate delivery rows, move notification handling to Notifications, and test leases, retries, deduplication, failed delivery, and replay.
 4. **Logical module ownership** — keep Operations as a compatibility surface while Reconciliation and Reporting own their workflows; remove alternate cross-module write paths.
 5. **Assembly enforcement** — after behavior is behind stable contracts, extract useful class libraries into the same deployable application and add dependency-cycle checks.
-6. **Replica and worker hardening** — coordinate scheduled reconciliation, configure worker roles, share protected keys, define global rate-limit strategy, manage pools, and validate multi-instance recovery.
+6. **Replica and worker hardening** — configure API/worker roles, coordinate scheduled reconciliation with a PostgreSQL advisory lease, share protected keys, define global rate-limit strategy, manage pools, and validate multi-instance recovery.
 
 ## Verification and acceptance
 
@@ -140,4 +140,6 @@ Required multi-instance scenarios include session revocation, shared keys, idemp
 
 Implemented: Wallets movement/policy boundary, Ledger posting contract, per-consumer outbox schema and migration, Notifications handler extraction, Reporting and Reconciliation logical ownership, and architecture dependency tests.
 
-Not yet complete: class-library extraction, coordinated worker roles, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, and multi-instance/recovery validation.
+Partially implemented: worker-role configuration and PostgreSQL coordination for reconciliation scheduling. The lease is held by the database connection, so a crashed worker releases it when PostgreSQL closes the session.
+
+Not yet complete: class-library extraction, global rate limiting, durable multi-instance sandbox state, full architecture dependency enforcement, connection/lock measurements, and multi-instance/recovery validation.

@@ -121,8 +121,17 @@ builder.Services.AddScoped<OutboxDispatcher>();
 builder.Services.AddScoped<Senzy.Api.Features.Notifications.NotificationEventHandler>();
 builder.Services.AddScoped<IPaymentFailureInjector, NoopPaymentFailureInjector>();
 builder.Services.AddScoped<IFundingFailureInjector, NoopFundingFailureInjector>();
-builder.Services.AddHostedService<OutboxWorker>();
-builder.Services.AddHostedService<ReconciliationWorker>();
+
+var workerRole = builder.Configuration.GetValue("Workers:Role", "all");
+var workersEnabled = workerRole.Equals("all", StringComparison.OrdinalIgnoreCase)
+    || workerRole.Equals("worker", StringComparison.OrdinalIgnoreCase);
+
+if (workersEnabled)
+{
+  builder.Services.AddHostedService<OutboxWorker>();
+  builder.Services.AddHostedService<ReconciliationWorker>();
+}
+
 builder.Services.AddAuthorization();
 
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()

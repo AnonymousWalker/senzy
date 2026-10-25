@@ -85,6 +85,8 @@ See the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md) for auth
 
 The stub's link sessions and display accounts are in memory and reset on API restart; the database bind mount does not persist them. Committed funding and sandbox-provider transfer records are durable so reconciliation remains auditable. Ownership is always derived from the authenticated principal, never from a caller-supplied user ID.
 
+The same application artifact supports API-only and worker-only roles through `Workers:Role`. Use `all` for local development, `api` for request-serving replicas, and `worker` for replicas that run the outbox and reconciliation hosted services. Reconciliation workers coordinate with a PostgreSQL advisory lease, so only one worker performs a scheduled run at a time and another replica can take over after a crash releases the database connection.
+
 ## Code organization
 
 Paths below are relative to the repository root:
