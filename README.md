@@ -1,29 +1,66 @@
+<div align="center">
+
 # Senzy
 
-A web-and-mobile peer-to-peer payments foundation. This is an original implementation and does not contain Venmo branding or proprietary code. Payments, balances, and banking are simulated; real-money movement is not implemented.
+### A calm, people-first foundation for peer-to-peer payments
 
-## Workspace
+Senzy is a web and mobile payments sandbox built to explore trustworthy payment flows, durable ledger behavior, and a polished social-payments experience.
 
-- `apps/mobile` — authenticated Expo / React Native client
-- `apps/web` — authenticated React + TypeScript client
-- `api-server` — ASP.NET Core API with Identity, profiles, simulated payments/funding, a double-entry ledger, durable outbox delivery, reconciliation, health, OpenAPI, and sandbox banking
-- `packages/contracts` — generated OpenAPI types, runtime validation, and the shared API client
-- `tests/Senzy.Api.Tests` — HTTP, authentication, ownership, migration, and PostgreSQL integration tests
-- `infra/compose.yaml` — local PostgreSQL and containerized API
-- `docs/PRODUCT_PLAN.md` — staged delivery plan and safety gates
+<p>
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#safety-boundary">Safety boundary</a>
+</p>
 
-## Prerequisites
+<img src="docs/assets/senzy-dashboard.png" alt="Senzy payments dashboard showing a simulated balance, Pay form, and Request form" width="920" />
 
-- Node.js 24.15.0 (pinned in `.nvmrc`; use `nvm use` if you use NVM)
-- pnpm 11.1.3 (pinned in `package.json`; enable Corepack with `corepack enable`)
-- .NET SDK 10
-- Expo Go on a physical phone, or an Android emulator
-- Docker Engine with Compose v2, or Docker Desktop, for the containerized database/API
+</div>
 
-## Start
+> **Sandbox only.** Senzy does not move real money, connect to real banks, or accept real banking credentials. The balances, payments, funding sources, and reconciliation records are simulated development data.
 
-```powershell
+## What is Senzy?
+
+Senzy is a pragmatic starting point for building a modern peer-to-peer payments product. It combines a friendly social-payments interface with the backend foundations that payment workflows need:
+
+- simulated payments, payment requests, funding, and wallet controls;
+- integer minor-unit money values and explicit USD currency handling;
+- double-entry ledger posting with immutable posted entries;
+- scoped idempotency for safe retries;
+- durable outbox delivery and notification history;
+- sandbox banking and reconciliation workflows;
+- cookie-authenticated web flows and bearer-token mobile flows;
+- shared OpenAPI types, runtime validation, and API clients.
+
+## Product surface
+
+| Surface | Purpose |
+| --- | --- |
+| Web | React + TypeScript client for activity, Pay, Request, Funding, and Profile |
+| Mobile | Expo / React Native client for the same authenticated sandbox workflows |
+| API | ASP.NET Core modular monolith with Identity, payments, funding, ledger, notifications, and operations |
+| Contracts | Generated OpenAPI types, Zod runtime schemas, and shared clients |
+| Persistence | PostgreSQL system of record with reviewed EF Core migrations |
+
+## Quick start
+
+### Prerequisites
+
+- Node.js `24.15.0` — use `nvm use` with the checked-in `.nvmrc`
+- pnpm `11.1.3`
+- .NET SDK `10`
+- Docker Engine with Compose v2, or Docker Desktop
+- Expo Go or an Android emulator for mobile development
+
+### Run the API and web client
+
+From the repository root:
+
+```bash
+nvm use
+corepack enable
 pnpm install --frozen-lockfile
+
 docker compose -f infra/compose.yaml up -d postgres
 pnpm db:migrate
 pnpm dev:api
@@ -31,82 +68,121 @@ pnpm dev:api
 
 In a second terminal:
 
-```powershell
+```bash
+nvm use
 pnpm dev:web
 ```
 
-The web preview runs at `http://localhost:5173` and proxies `/api` to the ASP.NET API at `http://localhost:4001`. To start mobile too, run `pnpm dev:mobile` in another terminal. The API liveness endpoint is `http://localhost:4001/health`; `/health/ready` reports 503 until PostgreSQL is available. In development, OpenAPI is at `http://localhost:4001/openapi/v1.json`.
+Open [http://localhost:5173](http://localhost:5173). The web client proxies `/api` to the development API at [http://localhost:4001](http://localhost:4001).
 
-## Stub banking provider
+Useful development endpoints:
 
-The ASP.NET API includes a development-only sandbox banking adapter. It does not call a bank or accept routing or account numbers. Its link sessions and connected accounts are kept in memory and reset whenever the API restarts. Account operations require authentication and derive ownership from the session, but the adapter must not be enabled in a public deployment.
+- API liveness: [http://localhost:4001/health](http://localhost:4001/health)
+- API readiness: [http://localhost:4001/health/ready](http://localhost:4001/health/ready)
+- OpenAPI: [http://localhost:4001/openapi/v1.json](http://localhost:4001/openapi/v1.json)
 
-Available endpoints:
+### Run the mobile client
 
-- `GET /v1/banking/institutions`
-- `POST /v1/banking/link-sessions`
-- `POST /v1/banking/accounts`
-- `GET /v1/banking/accounts`
+With the API running, start Expo in another terminal:
 
-Banking responses are marked with `provider: "stub-banking"` and `sandbox: true`. `IBankingProvider` is the swap point for a future provider integration; real bank linking is out of scope now.
+```bash
+pnpm dev:mobile
+```
 
-## Database and API with Docker Compose
+Scan the QR code with Expo Go, or launch an Android emulator.
 
-From the repository root on this Linux host:
+## Docker Compose
 
-```sh
-mkdir -p /home/tony/data/senzy
-docker compose -f infra/compose.yaml build api
-docker compose -f infra/compose.yaml up -d --wait postgres
-docker compose -f infra/compose.yaml run --rm --no-deps api --migrate
+Compose can run PostgreSQL, migrations, and the API together:
+
+```bash
+docker compose -f infra/compose.yaml build api migrate
 docker compose -f infra/compose.yaml up -d --wait
 docker compose -f infra/compose.yaml ps
 ```
 
-PostgreSQL 17 stores its data in `/home/tony/data/senzy`, bind-mounted at `/var/lib/postgresql/data`. Docker initializes the directory's PostgreSQL permissions on first start. Run the migration command once initially and again whenever a release includes a new migration; API replicas do not migrate automatically. The API waits for PostgreSQL to be healthy and connects using the Compose service name `postgres`. Its health check uses `/health/ready`.
+The Compose setup publishes PostgreSQL on `localhost:5433` and the API on `localhost:4001`. The migration service completes before the API starts. After backend source changes, rebuild the API image; containers do not hot-reload.
 
-The API is available at `http://localhost:4001`, and PostgreSQL at `localhost:5433` (`senzy` database, username, and local-development password). Host port 5433 avoids the existing database on port 5432; PostgreSQL still listens on 5432 inside Compose. Both published ports bind to loopback. This Compose configuration runs the API in Development so sandbox routes and OpenAPI remain available; it is intended for local development. The API process runs as a non-root user in a multi-stage .NET 10 image.
+To inspect service logs or stop the stack:
 
-Run `pnpm dev:web` to use the containerized API; do not also run `pnpm dev:api` on the same port. After backend source changes, rerun the Compose command with `--build`; the container does not hot-reload. To use host-side .NET hot reload instead, stop the API container with `docker compose -f infra/compose.yaml stop api`, start only the database with `docker compose -f infra/compose.yaml up -d postgres`, then run `pnpm dev:api`.
-
-```sh
+```bash
 docker compose -f infra/compose.yaml logs -f api postgres
 docker compose -f infra/compose.yaml down
 ```
 
-`down` removes containers and the Compose network but preserves the database files in `/home/tony/data/senzy` and the named `api-keys` volume used for Identity token and cookie protection. Use `down -v` only when you intentionally want to remove that key volume and invalidate protected sessions. The previous database Compose named volume, if present, is not migrated or deleted by this setup. Use a PostgreSQL dump/restore if you need to transfer existing data. Edit the bind mount source in `infra/compose.yaml` when using another host.
+The database files are stored in `/home/tony/data/senzy` by the local Compose configuration. Update `infra/compose.yaml` if you need a different host path.
 
-The API uses the development PostgreSQL connection in `api-server/appsettings.Development.json`; override it with `ConnectionStrings__Postgres` in another environment. Run `pnpm db:migrate` for a host-side database or `dotnet tool restore && dotnet ef migrations add <Name> --project api-server` when creating a reviewed migration. Simulated payment and funding endpoints require PostgreSQL and atomically commit the command record, idempotency result, double-entry ledger posting, balance projection, and outbox record. Background workers deliver notifications and run daily reconciliation after migrations have been applied.
+## Architecture
 
-## Checks
+Senzy is a layered modular monolith: one ASP.NET Core deployable, one PostgreSQL system of record, and feature modules that own their workflows.
 
-```powershell
-pnpm check
-pnpm contracts:check
-pnpm test
-pnpm lint:mobile
-pnpm build:web
-pnpm build:mobile
+```text
+senzy/
+├── apps/
+│   ├── web/                 React + TypeScript web client
+│   └── mobile/              Expo / React Native client
+├── api-server/              ASP.NET Core API and feature routes
+│   ├── Features/            HTTP boundaries and feature composition
+│   ├── Modules/             Domain and application workflows
+│   └── Infrastructure/      EF Core, providers, outbox, and persistence
+├── packages/contracts/      OpenAPI artifacts, Zod schemas, and clients
+├── tests/                   API, identity, ownership, ledger, and integration tests
+├── infra/                   Docker Compose configuration
+└── docs/                    Architecture, threat model, and operating guidance
 ```
 
-`pnpm check` checks all TypeScript packages and builds the .NET API. `pnpm test` runs available workspace tests and the .NET integration suite. The database-success test is explicitly skipped locally unless `SENZY_TEST_POSTGRES` is set to a test database connection string; CI requires it and starts PostgreSQL automatically. Other tests cover unavailable/unconfigured databases without needing PostgreSQL.
+Within a non-trivial backend module, dependencies point `API → Application → Domain`. Infrastructure implements persistence and provider boundaries at the composition root. Cross-module work uses explicit contracts rather than internal HTTP calls or ad hoc table writes.
 
-For the bundled local database, set `SENZY_TEST_POSTGRES` to `Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy` before running tests. Each persistence test creates and drops an isolated PostgreSQL schema; do not point this variable at a production database.
+## Development
 
-`pnpm contracts:generate` updates committed OpenAPI and TypeScript artifacts after API changes. `pnpm contracts:check` validates runtime response samples and detects generated-file drift. See the [contract workflow](packages/contracts/README.md).
+Common commands from the repository root:
 
-`pnpm build:mobile` exports Android, iOS, and web JavaScript/assets locally; it does not invoke EAS or produce native store binaries. CI runs these checks and a pinned Gitleaks history scan on pull requests and pushes to `main`.
+```bash
+pnpm dev:web              # Start the web client
+pnpm dev:api              # Start the ASP.NET API with hot reload
+pnpm db:migrate           # Apply reviewed EF migrations
+pnpm check                # TypeScript checks plus API build
+pnpm contracts:check      # Validate generated contracts and runtime samples
+pnpm test                 # Workspace and .NET tests
+pnpm build:web            # Production web build
+pnpm lint:mobile          # Mobile linting
+pnpm build:mobile         # Expo export
+```
 
-## Architecture and planning
+When changing an API surface, run `pnpm contracts:generate`, inspect the generated OpenAPI and TypeScript diff, update runtime schemas and consumers, then run `pnpm contracts:check`.
 
-- [Repository engineering instructions](AGENTS.md)
-- [API organization](api-server/README.md)
-- [Web client organization](apps/web/README.md)
-- [Backend architecture](docs/BACKEND_ARCHITECTURE.md) — decisions, ownership, transaction boundaries, refactor sequence, and verification criteria
-- [Workload and reliability targets](docs/OPERATING_TARGETS.md)
-- [Initial threat model](docs/THREAT_MODEL.md)
-- [Phase 0 verification](docs/PHASE_0.md)
-- [Phase 1 verification](docs/PHASE_1.md)
-- [Phase 2 verification](docs/PHASE_2.md)
+Persistence tests require an isolated PostgreSQL connection in `SENZY_TEST_POSTGRES`. For the bundled local database:
 
-This codebase is a development foundation, not a production-ready financial service. The durable provider rows and reconciliation results are sandbox fixtures, not bank settlement evidence. See the product plan for compliance, fraud, security, recovery, and operational requirements that must be completed before real funds are handled.
+```bash
+export SENZY_TEST_POSTGRES='Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy'
+pnpm test
+```
+
+Never point this variable at production data.
+
+## Safety boundary
+
+Senzy is not approved for real-money use or public deployment. In particular:
+
+- banking is a development-only in-memory stub;
+- raw routing and account fields are rejected;
+- simulated records must not be described as settled funds;
+- PostgreSQL remains authoritative for balances, ledger state, idempotency, and outbox records;
+- external provider work is modeled as explicit pending workflows, not atomic with PostgreSQL;
+- migrations are applied explicitly rather than independently by every API replica.
+
+Read the [threat model](docs/THREAT_MODEL.md) before changing authentication, authorization, provider boundaries, logging, or public exposure.
+
+## Documentation
+
+- [Backend architecture](docs/BACKEND_ARCHITECTURE.md)
+- [Web client guide](apps/web/README.md)
+- [API guide](api-server/README.md)
+- [Contracts guide](packages/contracts/README.md)
+- [Operating targets](docs/OPERATING_TARGETS.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Product plan](docs/PRODUCT_PLAN.md)
+
+## License
+
+This repository is an internal development foundation. Licensing and contribution terms should be finalized before public distribution.
