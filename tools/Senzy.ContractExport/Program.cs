@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Senzy.Api.Features.Banking;
+using Senzy.Infrastructure.Banking;
 
 namespace Senzy.ContractExport;
 
