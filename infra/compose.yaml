@@ -22,6 +22,18 @@ services:
         bind:
           create_host_path: false
 
+  migrate:
+    build:
+      context: ..
+      dockerfile: api-server/Dockerfile
+    command: ["--migrate"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build:
       context: ..
@@ -39,6 +51,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health/ready"]
       interval: 10s

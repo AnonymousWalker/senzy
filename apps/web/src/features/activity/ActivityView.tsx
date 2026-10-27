@@ -59,14 +59,14 @@ export function ActivityView({ busy, payments, profile, requests, wallet, onAcce
     <div className="payment-actions">
       <form className="action-card" onSubmit={event => submit(event, 'send')}>
         <div className="action-heading"><span className="action-mark">$</span><div><h2>Pay</h2><small>Send money to a friend</small></div></div>
-        <label>Recipient handle<input name="handle" required minLength={3} maxLength={20} placeholder="friend_handle" autoCapitalize="none" /></label>
+        <label>Recipient’s Senzy Tag<input name="handle" required minLength={3} maxLength={20} placeholder="friend_tag" autoCapitalize="none" /></label>
         <label>Amount (USD)<input name="amount" required inputMode="decimal" placeholder="25.00" /></label>
         <label>Note<input name="note" maxLength={280} placeholder="What’s it for?" /></label>
         <button disabled={busy || !wallet}>Pay someone</button>
       </form>
       <form className="action-card" onSubmit={event => submit(event, 'request')}>
         <div className="action-heading"><span className="action-mark request-mark">↙</span><div><h2>Request</h2><small>Ask a friend for money</small></div></div>
-        <label>Payer handle<input name="handle" required minLength={3} maxLength={20} placeholder="friend_handle" autoCapitalize="none" /></label>
+        <label>Payer’s Senzy Tag<input name="handle" required minLength={3} maxLength={20} placeholder="friend_tag" autoCapitalize="none" /></label>
         <label>Amount (USD)<input name="amount" required inputMode="decimal" placeholder="25.00" /></label>
         <label>Note<input name="note" maxLength={280} placeholder="What’s it for?" /></label>
         <button disabled={busy}>Request money</button>
@@ -75,7 +75,7 @@ export function ActivityView({ busy, payments, profile, requests, wallet, onAcce
 
     {incoming.length > 0 && <><div className="section-title"><h2>Requests for you</h2><span className="sandbox-label">Action needed</span></div>
       <ul className="request-list">{incoming.map(request => <li key={request.id}>
-        <div><strong>${request.requesterHandle} requested {dollars(request.amountMinor)}</strong><p>{request.note || 'No note'}</p></div>
+        <div><strong>@{request.requesterHandle} requested {dollars(request.amountMinor)}</strong><p>{request.note || 'No note'}</p></div>
         <button disabled={busy} onClick={() => onAcceptRequest(request.id)}>Pay request</button>
       </li>)}</ul></>}
 
@@ -86,7 +86,7 @@ export function ActivityView({ busy, payments, profile, requests, wallet, onAcce
           const received = payment.recipientUserId === profile.userId
           return <li key={payment.id}>
             <span className="activity-icon" aria-hidden="true">{initials(received ? payment.senderHandle : payment.recipientHandle)}</span>
-            <div><h3>{received ? `From $${payment.senderHandle}` : `To $${payment.recipientHandle}`}</h3><p>{payment.note || 'No note'} · {payment.status}</p><time dateTime={payment.createdAt}>{new Date(payment.createdAt).toLocaleDateString()}</time></div>
+            <div><h3>{received ? `From @${payment.senderHandle}` : `To @${payment.recipientHandle}`}</h3><p>{payment.note || 'No note'} · {payment.status}</p><time dateTime={payment.createdAt}>{new Date(payment.createdAt).toLocaleDateString()}</time></div>
             <strong className={received ? 'received' : ''}>{received ? '+' : '−'}{dollars(payment.amountMinor)}</strong>
             {!received && payment.status === 'posted' && <button className="quiet compact" disabled={busy} onClick={() => onReverse(payment.id)}>Reverse</button>}
           </li>

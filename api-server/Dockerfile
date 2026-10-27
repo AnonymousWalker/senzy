@@ -2,6 +2,11 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY global.json ./
 COPY api-server/Senzy.Api.csproj api-server/
+COPY api-server/Modules/Ledger/Senzy.Modules.Ledger.csproj api-server/Modules/Ledger/
+COPY api-server/Modules/Wallets/Senzy.Modules.Wallets.csproj api-server/Modules/Wallets/
+COPY api-server/Modules/Payments/Senzy.Modules.Payments.csproj api-server/Modules/Payments/
+COPY api-server/Modules/Funding/Senzy.Modules.Funding.csproj api-server/Modules/Funding/
+COPY api-server/Infrastructure/Transactions/Senzy.Infrastructure.csproj api-server/Infrastructure/Transactions/
 RUN dotnet restore api-server/Senzy.Api.csproj
 COPY api-server/ api-server/
 RUN dotnet publish api-server/Senzy.Api.csproj --configuration Release --no-restore --output /app/publish /p:UseAppHost=false

@@ -15,6 +15,7 @@ interface AuthViewProps {
 
 export function AuthView({ busy, config, onSubmit }: AuthViewProps) {
   const [signUp, setSignUp] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -39,11 +40,11 @@ export function AuthView({ busy, config, onSubmit }: AuthViewProps) {
       <form onSubmit={submit} key={String(signUp)}>
         {signUp && <>
           <label>Display name<input name="displayName" autoComplete="name" required maxLength={80} /></label>
-          <label>Payment handle<input name="handle" autoCapitalize="none" autoComplete="username" required pattern="[a-zA-Z][a-zA-Z0-9_]{2,19}" minLength={3} maxLength={20} aria-describedby="handle-help" /></label>
-          <small id="handle-help">3–20 letters, numbers or underscores. Start with a letter.</small>
+          <label>Senzy Tag<input name="handle" autoCapitalize="none" autoComplete="username" required pattern="[a-zA-Z][a-zA-Z0-9_]{2,19}" minLength={3} maxLength={20} aria-describedby="handle-help" /></label>
+          <small id="handle-help">Choose 3–20 letters, numbers or underscores. Start with a letter.</small>
         </>}
         <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254} /></label>
-        <label>Password<input name="password" type="password" autoComplete={signUp ? 'new-password' : 'current-password'} required minLength={signUp ? 8 : undefined} maxLength={128} /></label>
+        <label>Password<div className="password-field"><input name="password" type={showPassword ? 'text' : 'password'} autoComplete={signUp ? 'new-password' : 'current-password'} required minLength={signUp ? 8 : undefined} maxLength={128} /><button className="password-toggle" type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? 'Hide' : 'Show'}</button></div></label>
         {signUp && <small>At least 8 characters.</small>}
         <button disabled={busy} type="submit">{busy ? 'Please wait…' : signUp ? 'Create account' : 'Sign in'}</button>
       </form>
