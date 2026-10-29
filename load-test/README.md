@@ -18,6 +18,9 @@ PROFILE=controlled docker compose -f infra/compose.yaml -f load-test/compose.yam
 
 # Ceiling probe capped at 75 iterations/sec:
 PROFILE=ceiling docker compose -f infra/compose.yaml -f load-test/compose.yaml run --rm --no-deps k6
+
+# Lower ceiling probe capped at 50 iterations/sec:
+PROFILE=ceiling50 docker compose -f infra/compose.yaml -f load-test/compose.yaml run --rm --no-deps k6
 ```
 
 Results are written to `load-test/results/summary.json` and `load-test/results/k6.json`. The Compose override raises only the benchmark instance's process-local auth/payment rate limits; it does not change application source or any production configuration.
