@@ -33,6 +33,13 @@ const stages = __ENV.PROFILE === "stress"
             { target: 50, duration: "60s" },
             { target: 0, duration: "15s" }
           ]
+        : __ENV.PROFILE === "distributed50"
+          ? [
+              { target: 25, duration: "30s" },
+              { target: 40, duration: "45s" },
+              { target: 50, duration: "60s" },
+              { target: 0, duration: "15s" }
+            ]
     : [
       { target: 10, duration: "30s" },
       { target: 25, duration: "60s" },
@@ -75,10 +82,10 @@ function request(method, path, body, token, headers = {}) {
   });
 }
 
-function registerAndLogin(role) {
-  const email = `load-${role}-${Date.now()}-${__VU}@example.test`;
+function registerAndLogin(role, index) {
+  const email = `load-${role}-${index}-${Date.now()}-${__VU}@example.test`;
   const password = "LoadTestPassword123!";
-  const handle = `l${role[0]}${Date.now().toString(36)}${__VU}`;
+  const handle = `l${role[0]}${index}${Date.now().toString(36)}${__VU}`;
   const registration = request("POST", "/v1/auth/register", {
     email,
     password,
@@ -102,29 +109,37 @@ export function setup() {
     sleep(1);
   }
 
-  const sender = registerAndLogin("sender");
-  const recipient = registerAndLogin("recipient");
-  return { sender, recipient };
+  const pairCount = __ENV.PROFILE === "distributed50" ? 8 : 1;
+  const pairs = [];
+  for (let index = 0; index < pairCount; index += 1) {
+    pairs.push({
+      sender: registerAndLogin("sender", index),
+      recipient: registerAndLogin("recipient", index)
+    });
+  }
+
+  return { pairs };
 }
 
 export default function (data) {
-  if (!data.sender.token || !data.recipient.handle) return;
+  const pair = data.pairs[(__VU - 1) % data.pairs.length];
+  if (!pair.sender.token || !pair.recipient.handle) return;
 
-  const read = request("GET", "/v1/wallet/", null, data.sender.token);
+  const read = request("GET", "/v1/wallet/", null, pair.sender.token);
   readLatency.add(read.timings.duration);
   check(read, { "wallet read succeeds": (response) => response.status === 200 });
 
-  const activity = request("GET", "/v1/operations/status", null, data.sender.token);
+  const activity = request("GET", "/v1/operations/status", null, pair.sender.token);
   readLatency.add(activity.timings.duration);
   check(activity, { "status read succeeds": (response) => response.status === 200 });
 
   const idempotencyKey = `load-${Date.now()}-${__VU}-${__ITER}`;
   const payment = request("POST", "/v1/payments/", {
-    recipientHandle: data.recipient.handle,
+    recipientHandle: pair.recipient.handle,
     amountMinor: 1,
     currency: "USD",
     note: "Docker load test"
-  }, data.sender.token, { "Idempotency-Key": idempotencyKey });
+  }, pair.sender.token, { "Idempotency-Key": idempotencyKey });
   paymentLatency.add(payment.timings.duration);
 
   if (payment.status === 201) {

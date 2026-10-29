@@ -13,5 +13,6 @@ Reports are kept separately so each optimization has its own before/after record
 | [007-controlled-offered-load.md](reports/007-controlled-offered-load.md) | Same 8/22 lanes with controlled arrival rate and 429 backoff | No 500/503s; reads healthy, 100/sec still caused 10% 429s |
 | [008-ceiling-probe-75.md](reports/008-ceiling-probe-75.md) | Same 8/22 lanes with controlled ramp capped at 75/sec | Read target passes; payment p95 3.03s and 7.7% 429s |
 | [009-ceiling-probe-50.md](reports/009-ceiling-probe-50.md) | Same 8/22 lanes with controlled ramp capped at 50/sec | 3.5% 429s and 2.93s payment p95; reads pass |
+| [010-distributed-accounts-50.md](reports/010-distributed-accounts-50.md) | Same 8/22 lanes and 50/sec ramp with eight account pairs | All thresholds pass; hot-wallet contention isolated as prior bottleneck |
 
 All runs used Docker Compose, one API container, one PostgreSQL 17 container, synthetic data, and a 100-VU k6 cap. These are local observations, not production capacity claims.
