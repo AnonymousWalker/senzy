@@ -11,7 +11,15 @@ const stages = __ENV.PROFILE === "stress"
       { target: 400, duration: "30s" },
       { target: 0, duration: "15s" }
     ]
-  : [
+  : __ENV.PROFILE === "controlled"
+    ? [
+        { target: 25, duration: "30s" },
+        { target: 50, duration: "45s" },
+        { target: 75, duration: "45s" },
+        { target: 100, duration: "45s" },
+        { target: 0, duration: "15s" }
+      ]
+    : [
       { target: 10, duration: "30s" },
       { target: 25, duration: "60s" },
       { target: 50, duration: "60s" },
@@ -115,7 +123,9 @@ export default function (data) {
       [201, 400, 404, 409].includes(response.status)
   });
 
-  sleep(0.1);
+  const wasRateLimited = [read, activity, payment]
+      .some((response) => response.status === 429);
+  sleep(wasRateLimited ? 0.5 : 0.1);
 }
 
 export function handleSummary(data) {

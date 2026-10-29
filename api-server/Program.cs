@@ -164,13 +164,23 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
-  options.AddPolicy("database", _ =>
+  options.AddPolicy("database-reads", _ =>
       RateLimitPartition.GetConcurrencyLimiter(
-          "database",
+          "database-reads",
           _ => new ConcurrencyLimiterOptions
           {
-            PermitLimit = builder.Configuration.GetValue("Database:ConcurrencyLimit", 30),
-            QueueLimit = builder.Configuration.GetValue("Database:ConcurrencyQueueLimit", 60),
+            PermitLimit = builder.Configuration.GetValue("Database:ReadConcurrencyLimit", 10),
+            QueueLimit = builder.Configuration.GetValue("Database:ReadConcurrencyQueueLimit", 30),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+          }));
+
+  options.AddPolicy("database-writes", _ =>
+      RateLimitPartition.GetConcurrencyLimiter(
+          "database-writes",
+          _ => new ConcurrencyLimiterOptions
+          {
+            PermitLimit = builder.Configuration.GetValue("Database:WriteConcurrencyLimit", 20),
+            QueueLimit = builder.Configuration.GetValue("Database:WriteConcurrencyQueueLimit", 40),
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst
           }));
 

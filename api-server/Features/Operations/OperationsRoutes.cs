@@ -13,7 +13,6 @@ public static class OperationsRoutes
   {
     var group = app.MapGroup("/v1/operations")
         .RequireAuthorization()
-        .RequireRateLimiting("database")
         .RequireRateLimiting("payments")
         .WithTags("Operations");
 
@@ -35,6 +34,7 @@ public static class OperationsRoutes
               "USD",
               await reconciliation.LatestAsync(ct)));
         })
+        .RequireRateLimiting("database-reads")
         .WithName("GetOperationsStatus")
         .Produces<OperationsStatusResponse>();
 
@@ -46,6 +46,7 @@ public static class OperationsRoutes
           await walletPolicy.SetFrozenAsync(actorId, true, ct);
           return Results.NoContent();
         })
+        .RequireRateLimiting("database-writes")
         .WithName("FreezeWallet")
         .Produces(204);
 
@@ -57,6 +58,7 @@ public static class OperationsRoutes
           await walletPolicy.SetFrozenAsync(actorId, false, ct);
           return Results.NoContent();
         })
+        .RequireRateLimiting("database-writes")
         .WithName("UnfreezeWallet")
         .Produces(204);
 
@@ -67,15 +69,17 @@ public static class OperationsRoutes
           var actorId = ProfileRoutes.ActorId(actor);
           return Results.Ok(await history.ListAsync(actorId, limit ?? 50, ct));
         })
+        .RequireRateLimiting("database-reads")
         .WithName("ListTransactionHistory")
         .Produces<TransactionHistoryResponse>();
 
     if (app.Environment.IsDevelopment())
     {
-      group.MapPost(
+          group.MapPost(
           "/reconciliation",
           async (ReconciliationService reconciliation, CancellationToken ct) =>
               Results.Ok(await reconciliation.RunAsync(ct)))
+          .RequireRateLimiting("database-writes")
           .WithName("RunReconciliation")
           .Produces<ReconciliationResponse>();
     }

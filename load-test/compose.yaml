@@ -3,8 +3,10 @@ services:
     environment:
       RateLimits__AuthPermitLimit: "100000"
       RateLimits__PaymentsPermitLimit: "100000"
-      Database__ConcurrencyLimit: "30"
-      Database__ConcurrencyQueueLimit: "60"
+      Database__ReadConcurrencyLimit: "8"
+      Database__ReadConcurrencyQueueLimit: "60"
+      Database__WriteConcurrencyLimit: "22"
+      Database__WriteConcurrencyQueueLimit: "60"
 
   k6:
     image: grafana/k6:0.54.0
