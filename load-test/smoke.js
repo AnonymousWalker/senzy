@@ -19,6 +19,13 @@ const stages = __ENV.PROFILE === "stress"
         { target: 100, duration: "45s" },
         { target: 0, duration: "15s" }
       ]
+    : __ENV.PROFILE === "ceiling"
+      ? [
+          { target: 25, duration: "30s" },
+          { target: 50, duration: "45s" },
+          { target: 75, duration: "60s" },
+          { target: 0, duration: "15s" }
+        ]
     : [
       { target: 10, duration: "30s" },
       { target: 25, duration: "60s" },

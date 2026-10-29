@@ -11,5 +11,6 @@ Reports are kept separately so each optimization has its own before/after record
 | [005-separate-read-write-lanes.md](reports/005-separate-read-write-lanes.md) | 30-connection pool with 10 read and 20 write permits | Read latency improved sharply; write queue rejected 26.9% of requests |
 | [006-tuned-read-write-lanes.md](reports/006-tuned-read-write-lanes.md) | 30-connection pool with 8 read and 22 write permits, 60/60 queues | More committed payments and fewer 429s; overload targets still fail |
 | [007-controlled-offered-load.md](reports/007-controlled-offered-load.md) | Same 8/22 lanes with controlled arrival rate and 429 backoff | No 500/503s; reads healthy, 100/sec still caused 10% 429s |
+| [008-ceiling-probe-75.md](reports/008-ceiling-probe-75.md) | Same 8/22 lanes with controlled ramp capped at 75/sec | Read target passes; payment p95 3.03s and 7.7% 429s |
 
 All runs used Docker Compose, one API container, one PostgreSQL 17 container, synthetic data, and a 100-VU k6 cap. These are local observations, not production capacity claims.
