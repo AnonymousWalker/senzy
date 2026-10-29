@@ -12,6 +12,7 @@ public static class PaymentRoutes
   {
     var wallet = app.MapGroup("/v1/wallet")
         .RequireAuthorization()
+        .RequireRateLimiting("database")
         .WithTags("Wallet");
 
     wallet.MapGet(
@@ -24,6 +25,7 @@ public static class PaymentRoutes
 
     var paymentGroup = app.MapGroup("/v1/payments")
         .RequireAuthorization()
+        .RequireRateLimiting("database")
         .RequireRateLimiting("payments")
         .WithTags("Payments");
 
@@ -82,6 +84,7 @@ public static class PaymentRoutes
 
     var requestGroup = app.MapGroup("/v1/payment-requests")
         .RequireAuthorization()
+        .RequireRateLimiting("database")
         .RequireRateLimiting("payments")
         .WithTags("Payment requests");
 

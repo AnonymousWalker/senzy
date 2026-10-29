@@ -13,6 +13,7 @@ public static class OperationsRoutes
   {
     var group = app.MapGroup("/v1/operations")
         .RequireAuthorization()
+        .RequireRateLimiting("database")
         .RequireRateLimiting("payments")
         .WithTags("Operations");
 

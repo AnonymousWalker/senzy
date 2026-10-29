@@ -1,0 +1,19 @@
+# Docker load test
+
+This harness runs k6, the API, and PostgreSQL through Docker Compose. It creates synthetic users and exercises authenticated wallet/status reads plus idempotent simulated payments.
+
+From the repository root:
+
+```sh
+mkdir -p load-test/results
+DOCKER_BUILDKIT=0 docker compose -f infra/compose.yaml -f load-test/compose.yaml build api migrate
+docker compose -f infra/compose.yaml -f load-test/compose.yaml up -d postgres migrate api
+docker compose -f infra/compose.yaml -f load-test/compose.yaml run --rm --no-deps k6
+
+# Stress profile:
+PROFILE=stress docker compose -f infra/compose.yaml -f load-test/compose.yaml run --rm --no-deps k6
+```
+
+Results are written to `load-test/results/summary.json` and `load-test/results/k6.json`. The Compose override raises only the benchmark instance's process-local auth/payment rate limits; it does not change application source or any production configuration.
+
+The checked-in scenario includes a baseline ramp and a short stress ramp. The API Compose configuration also enables the experimental 30-connection pool and 30/60 database concurrency limiter used in the optimization trial. Never point it at production or a database containing real identities or financial data.

@@ -1,0 +1,23 @@
+services:
+  api:
+    environment:
+      RateLimits__AuthPermitLimit: "100000"
+      RateLimits__PaymentsPermitLimit: "100000"
+      Database__ConcurrencyLimit: "30"
+      Database__ConcurrencyQueueLimit: "60"
+
+  k6:
+    image: grafana/k6:0.54.0
+    user: "0:0"
+    working_dir: /scripts
+    volumes:
+      - ../load-test:/scripts:ro
+      - ../load-test/results:/results
+    environment:
+      BASE_URL: http://api:8080
+      PROFILE: ${PROFILE:-baseline}
+      K6_OUT: json=/results/k6.json
+    command: run /scripts/smoke.js
+    depends_on:
+      api:
+        condition: service_healthy

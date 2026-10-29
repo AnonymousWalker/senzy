@@ -12,6 +12,7 @@ public static class FundingRoutes
   {
     var group = app.MapGroup("/v1/funding-transfers")
         .RequireAuthorization()
+        .RequireRateLimiting("database")
         .RequireRateLimiting("payments")
         .WithTags("Sandbox funding");
 
