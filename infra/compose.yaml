@@ -4,6 +4,16 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - wal_compression=on
     environment:
       POSTGRES_DB: senzy
       POSTGRES_USER: senzy
@@ -29,7 +39,7 @@ services:
     command: ["--migrate"]
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy;Minimum Pool Size=5;Maximum Pool Size=30;Timeout=5;Command Timeout=30;Keepalive=30
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,8 +52,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=senzy;Username=senzy;Password=senzy;Minimum Pool Size=5;Maximum Pool Size=30;Timeout=5;Command Timeout=30;Keepalive=30
       DataProtection__KeyPath: /home/app/.aspnet/DataProtection-Keys
+      Database__ReadConcurrencyLimit: "8"
+      Database__ReadConcurrencyQueueLimit: "60"
+      Database__WriteConcurrencyLimit: "22"
+      Database__WriteConcurrencyQueueLimit: "60"
     ports:
       - "127.0.0.1:4001:8080"
     volumes:

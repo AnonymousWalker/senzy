@@ -45,15 +45,14 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
-if (!string.IsNullOrWhiteSpace(connectionString))
-{
-  builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
-}
+var dataSource = NpgsqlDataSource.Create(
+    connectionString
+        ?? "Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy");
+builder.Services.AddSingleton(dataSource);
 
 builder.Services.AddDbContext<SenzyDbContext>(options =>
     options.UseNpgsql(
-        connectionString ??
-            "Host=localhost;Port=5433;Database=senzy;Username=senzy;Password=senzy",
+        dataSource,
         npgsql => npgsql.MigrationsAssembly(typeof(SenzyDbContext).Assembly.GetName().Name)));
 builder.Services.AddScoped<ITransactionContext, EfTransactionContext>();
 
@@ -165,6 +164,26 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddRateLimiter(options =>
 {
+  options.AddPolicy("database-reads", _ =>
+      RateLimitPartition.GetConcurrencyLimiter(
+          "database-reads",
+          _ => new ConcurrencyLimiterOptions
+          {
+            PermitLimit = builder.Configuration.GetValue("Database:ReadConcurrencyLimit", 10),
+            QueueLimit = builder.Configuration.GetValue("Database:ReadConcurrencyQueueLimit", 30),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+          }));
+
+  options.AddPolicy("database-writes", _ =>
+      RateLimitPartition.GetConcurrencyLimiter(
+          "database-writes",
+          _ => new ConcurrencyLimiterOptions
+          {
+            PermitLimit = builder.Configuration.GetValue("Database:WriteConcurrencyLimit", 20),
+            QueueLimit = builder.Configuration.GetValue("Database:WriteConcurrencyQueueLimit", 40),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+          }));
+
   options.AddPolicy("auth", context =>
       RateLimitPartition.GetFixedWindowLimiter(
           context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -190,7 +209,7 @@ builder.Services.AddRateLimiter(options =>
           context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown",
           _ => new FixedWindowRateLimiterOptions
           {
-            PermitLimit = 60,
+            PermitLimit = builder.Configuration.GetValue("RateLimits:PaymentsPermitLimit", 60),
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0
           }));
