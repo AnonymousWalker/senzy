@@ -17,24 +17,21 @@ public sealed class WalletMovementStore(SenzyDbContext db) : IWalletMovementStor
   {
     var debitPurpose = ToPurpose(debitRole);
     var creditPurpose = ToPurpose(creditRole);
-    var ids = await db.LedgerAccounts.AsNoTracking()
-        .Where(account =>
-            ((account.OwnerUserId == debitOwnerUserId && account.Purpose == debitPurpose)
-                || (account.OwnerUserId == creditOwnerUserId && account.Purpose == creditPurpose))
-            && account.Currency == currency)
-        .Select(account => account.Id)
+    var accounts = await db.LedgerAccounts.FromSqlInterpolated(
+        $"""
+        SELECT * FROM "LedgerAccounts"
+        WHERE (("OwnerUserId" = {debitOwnerUserId} AND "Purpose" = {debitPurpose.ToString()})
+            OR ("OwnerUserId" = {creditOwnerUserId} AND "Purpose" = {creditPurpose.ToString()}))
+          AND "Currency" = {currency}
+        ORDER BY "Id"
+        FOR UPDATE
+        """)
         .ToListAsync(ct);
 
-    if (ids.Count != 2)
+    if (accounts.Count != 2)
     {
       return [];
     }
-
-    var low = ids.Min();
-    var high = ids.Max();
-    var accounts = await db.LedgerAccounts.FromSqlInterpolated(
-        $"""SELECT * FROM "LedgerAccounts" WHERE "Id" IN ({low}, {high}) ORDER BY "Id" FOR UPDATE""")
-        .ToListAsync(ct);
 
     return accounts.Select(account => new WalletAccountSnapshot(
         account.Id,

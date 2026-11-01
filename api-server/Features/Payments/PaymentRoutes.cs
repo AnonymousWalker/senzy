@@ -18,6 +18,7 @@ public static class PaymentRoutes
         "/",
         async (ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
             await Execute(async () => Map(await payments.GetWalletAsync(ProfileRoutes.ActorId(actor), ct))))
+        .RequireRateLimiting("database-reads")
         .WithName("GetWallet")
         .Produces<WalletResponse>()
         .ProducesProblem(404);
@@ -31,6 +32,7 @@ public static class PaymentRoutes
         "/",
         async (int? limit, ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
             await Execute(async () => Map(await payments.ListPaymentsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
+        .RequireRateLimiting("database-reads")
         .WithName("ListPayments")
         .Produces<PaymentListResponse>();
 
@@ -54,6 +56,7 @@ public static class PaymentRoutes
               ? Results.Created($"/v1/payments/{value.Id}", value)
               : result;
         })
+        .RequireRateLimiting("database-writes")
         .WithName("SendPayment")
         .Produces<PaymentResponse>(201)
         .ProducesProblem(400)
@@ -74,6 +77,7 @@ public static class PaymentRoutes
                     paymentId,
                     context.Request.Headers["Idempotency-Key"].ToString(),
                     ct))))
+        .RequireRateLimiting("database-writes")
         .WithName("ReversePayment")
         .Produces<PaymentResponse>()
         .ProducesProblem(400)
@@ -89,6 +93,7 @@ public static class PaymentRoutes
         "/",
         async (int? limit, ClaimsPrincipal actor, PaymentService payments, CancellationToken ct) =>
             await Execute(async () => Map(await payments.ListRequestsAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
+        .RequireRateLimiting("database-reads")
         .WithName("ListPaymentRequests")
         .Produces<PaymentRequestListResponse>();
 
@@ -112,6 +117,7 @@ public static class PaymentRoutes
               ? Results.Created($"/v1/payment-requests/{value.Id}", value)
               : result;
         })
+        .RequireRateLimiting("database-writes")
         .WithName("CreatePaymentRequest")
         .Produces<PaymentRequestResponse>(201)
         .ProducesProblem(400)
@@ -132,6 +138,7 @@ public static class PaymentRoutes
                     requestId,
                     context.Request.Headers["Idempotency-Key"].ToString(),
                     ct))))
+        .RequireRateLimiting("database-writes")
         .WithName("AcceptPaymentRequest")
         .Produces<PaymentResponse>()
         .ProducesProblem(400)

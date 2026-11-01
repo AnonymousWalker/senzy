@@ -19,6 +19,7 @@ public static class FundingRoutes
         "/",
         async (int? limit, ClaimsPrincipal actor, FundingService funding, CancellationToken ct) =>
             await Execute(async () => Map(await funding.ListAsync(ProfileRoutes.ActorId(actor), limit ?? 50, ct))))
+        .RequireRateLimiting("database-reads")
         .WithName("ListFundingTransfers")
         .Produces<FundingTransferListResponse>();
 
@@ -42,6 +43,7 @@ public static class FundingRoutes
               ? Results.Created($"/v1/funding-transfers/{value.Id}", value)
               : result;
         })
+        .RequireRateLimiting("database-writes")
         .WithName("CreateFundingTransfer")
         .Produces<FundingTransferResponse>(201)
         .ProducesProblem(400)
