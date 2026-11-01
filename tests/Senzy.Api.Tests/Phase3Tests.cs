@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Senzy.Api.Common;
+using Senzy.Api.Features.Notifications;
 using Senzy.Api.Features.Reconciliation;
 using Senzy.Api.Infrastructure.Outbox;
 using Senzy.Api.Infrastructure.Persistence;
@@ -144,8 +145,18 @@ public sealed class Phase3Tests
       var db = scope.ServiceProvider.GetRequiredService<SenzyDbContext>();
       var messageId = await db.OutboxMessages.Where(message => message.Type == "payment.posted").Select(message => message.Id).SingleAsync();
       var dispatcher = scope.ServiceProvider.GetRequiredService<OutboxDispatcher>();
-      await dispatcher.DispatchAsync(messageId, default);
-      await dispatcher.DispatchAsync(messageId, default);
+      var deliveryId = await db.OutboxDeliveries
+          .Where(delivery => delivery.OutboxMessageId == messageId
+              && delivery.ConsumerName == NotificationEventHandler.ConsumerName)
+          .Select(delivery => (Guid?)delivery.Id)
+          .SingleOrDefaultAsync();
+      if (deliveryId is null)
+      {
+        deliveryId = Assert.Single(await dispatcher.ClaimAsync(1, default));
+      }
+
+      await dispatcher.DispatchAsync(deliveryId.Value, default);
+      await dispatcher.DispatchAsync(deliveryId.Value, default);
     }
     var aliceItems = (await alice.GetFromJsonAsync<JsonElement>("/v1/notifications/")).GetProperty("items").EnumerateArray().ToList();
     var bobItems = (await bob.GetFromJsonAsync<JsonElement>("/v1/notifications/")).GetProperty("items").EnumerateArray().ToList();

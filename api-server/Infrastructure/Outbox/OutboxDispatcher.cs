@@ -75,39 +75,7 @@ public sealed class OutboxDispatcher(
 
     if (delivery is null)
     {
-      // Keep direct/manual dispatch compatible with callers that identify
-      // the immutable event rather than its consumer delivery row.
-      var eventMessage = await db.OutboxMessages.AsNoTracking()
-          .SingleOrDefaultAsync(value => value.Id == deliveryId, ct);
-
-      if (eventMessage is null)
-      {
-        return;
-      }
-
-      await db.Database.ExecuteSqlInterpolatedAsync(
-          $"""
-          INSERT INTO "OutboxConsumers" ("Name", "CreatedAt")
-          VALUES ({NotificationEventHandler.ConsumerName}, {now})
-          ON CONFLICT ("Name") DO NOTHING
-          """,
-          ct);
-
-      delivery = await db.OutboxDeliveries.SingleOrDefaultAsync(
-          value => value.OutboxMessageId == deliveryId
-              && value.ConsumerName == NotificationEventHandler.ConsumerName,
-          ct);
-
-      if (delivery is null)
-      {
-        delivery = new OutboxDelivery
-        {
-          OutboxMessageId = deliveryId,
-          ConsumerName = NotificationEventHandler.ConsumerName
-        };
-        db.OutboxDeliveries.Add(delivery);
-        await db.SaveChangesAsync(ct);
-      }
+      return;
     }
 
     if (delivery.DeliveredAt is not null)
