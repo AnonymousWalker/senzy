@@ -530,6 +530,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             provider: string;
+            providerOperationId: string;
+            providerOutcome: string;
             providerTransferId: string;
             status: string;
         };
@@ -1117,8 +1119,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

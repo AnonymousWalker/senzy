@@ -8,5 +8,8 @@ public enum FundingDirection
 
 public enum FundingStatus
 {
-  Posted
+  Pending,
+  Posted,
+  Failed,
+  Unknown
 }

@@ -1,3 +1,5 @@
+using Senzy.Infrastructure.Banking;
+
 namespace Senzy.Modules.Funding;
 
 public interface IFundingFailureInjector
@@ -21,8 +23,10 @@ public sealed record FundingTransferResult(
     Guid ExternalAccountId,
     string Provider,
     string ProviderTransferId,
+    string ProviderOperationId,
     string Direction,
     string Status,
+    string ProviderOutcome,
     long AmountMinor,
     string Currency,
     DateTimeOffset CreatedAt);
@@ -35,4 +39,6 @@ internal static class FundingMappings
       value == FundingDirection.CashIn ? "cash_in" : "cash_out";
 
   public static string Value(FundingStatus value) => value.ToString().ToLowerInvariant();
+
+  public static string Value(FundingProviderOutcome value) => value.ToString().ToLowerInvariant();
 }

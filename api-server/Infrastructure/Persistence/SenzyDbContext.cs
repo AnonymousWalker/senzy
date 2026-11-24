@@ -217,16 +217,20 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
     builder.Entity<FundingTransfer>(entity =>
     {
       entity.Property(transfer => transfer.Provider).HasMaxLength(40);
+      entity.Property(transfer => transfer.ProviderOperationId).HasMaxLength(100);
       entity.Property(transfer => transfer.ProviderTransferId).HasMaxLength(100);
       entity.Property(transfer => transfer.Direction).HasConversion<string>().HasMaxLength(16);
       entity.Property(transfer => transfer.Status).HasConversion<string>().HasMaxLength(16);
+      entity.Property(transfer => transfer.ProviderOutcome).HasConversion<string>().HasMaxLength(16);
       entity.Property(transfer => transfer.Currency).HasMaxLength(3).IsFixedLength();
       entity.ToTable(table =>
       {
         table.HasCheckConstraint("CK_FundingTransfers_Amount", "\"AmountMinor\" > 0");
         table.HasCheckConstraint("CK_FundingTransfers_Currency", "\"Currency\" = 'USD'");
         table.HasCheckConstraint("CK_FundingTransfers_Direction", "\"Direction\" IN ('CashIn', 'CashOut')");
-        table.HasCheckConstraint("CK_FundingTransfers_Status", "\"Status\" = 'Posted'");
+        table.HasCheckConstraint(
+            "CK_FundingTransfers_Status",
+            "\"Status\" IN ('Pending', 'Posted', 'Failed', 'Unknown')");
       });
       entity.HasIndex(transfer => transfer.ProviderTransferId).IsUnique();
       entity.HasIndex(transfer => transfer.LedgerTransactionId).IsUnique();
@@ -238,7 +242,8 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
       entity.HasOne<LedgerTransaction>()
           .WithMany()
           .HasForeignKey(transfer => transfer.LedgerTransactionId)
-          .OnDelete(DeleteBehavior.Restrict);
+          .OnDelete(DeleteBehavior.Restrict)
+          .IsRequired(false);
     });
 
     builder.Entity<SandboxProviderTransfer>(entity =>
@@ -251,7 +256,6 @@ public sealed class SenzyDbContext(DbContextOptions<SenzyDbContext> options)
       {
         table.HasCheckConstraint("CK_SandboxProviderTransfers_Amount", "\"AmountMinor\" > 0");
         table.HasCheckConstraint("CK_SandboxProviderTransfers_Currency", "\"Currency\" = 'USD'");
-        table.HasCheckConstraint("CK_SandboxProviderTransfers_Status", "\"Status\" = 'posted'");
       });
       entity.HasIndex(transfer => transfer.FundingTransferId).IsUnique();
       entity.HasIndex(transfer => transfer.ProviderTransferId).IsUnique();

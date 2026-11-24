@@ -12,7 +12,7 @@ This document records implementation details for the backend. The authoritative 
 
 ## Accepted refactor target — not yet implemented
 
-Retain one application artifact and one PostgreSQL database. Incrementally enforce module ownership through internal application contracts and useful assembly boundaries. Payments and Funding call Wallets for policy-controlled movements; Wallets calls Ledger for accounting writes. All participate in the initiating workflow's single transaction. Domain behavior must stop depending on infrastructure-owned persistence records as those boundaries are extracted.
+Retain one application artifact and one PostgreSQL database. Incrementally enforce module ownership through internal application contracts and useful assembly boundaries. Payments and Funding call Wallets for policy-controlled movements; Wallets calls Ledger for accounting writes. Payments use one initiating transaction; Funding separates its durable pending transaction, provider call, and final posting transaction. Domain behavior must stop depending on infrastructure-owned persistence records as those boundaries are extracted.
 
 Split Operations into Wallets (freezes/limits), Reconciliation (checks/discrepancies), and Reporting (combined history). Profiles remains a concrete recipient operation for now; Notifications owns event handlers currently embedded in the outbox dispatcher. The host composes modules and shared mechanisms. Small features may remain compact.
 
@@ -69,7 +69,7 @@ See the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md) for auth
 | `POST /v1/payment-requests/` | Payments | Authenticated idempotent request creation. |
 | `POST /v1/payment-requests/{id}/accept` | Payments | Payer-only idempotent request acceptance and posting. |
 | `GET /v1/funding-transfers/` | Funding | Development and authenticated; actor-private sandbox funding history. |
-| `POST /v1/funding-transfers/` | Funding | Development and authenticated; idempotent cash-in/out with atomic ledger, provider fixture, and outbox records. |
+| `POST /v1/funding-transfers/` | Funding | Development and authenticated; creates an idempotent pending cash-in/out operation for asynchronous provider processing. |
 | `GET /v1/notifications/` | Notifications | Authenticated actor-private notification history and unread count. |
 | `POST /v1/notifications/{id}/read` | Notifications | Authenticated owner-only read acknowledgement. |
 | `GET /v1/operations/status` | Operations | Authenticated freeze state, daily outbound usage/limit, and latest reconciliation result. |
@@ -83,7 +83,7 @@ See the [unified backend architecture](../docs/BACKEND_ARCHITECTURE.md) for auth
 | `POST /v1/banking/accounts` | Banking | Development and authenticated; consumes the actor's token once. |
 | `GET /v1/banking/accounts` | Banking | Development and authenticated; reads only the actor's simulated accounts. |
 
-The stub's link sessions and display accounts are in memory and reset on API restart; the database bind mount does not persist them. Committed funding and sandbox-provider transfer records are durable so reconciliation remains auditable. Ownership is always derived from the authenticated principal, never from a caller-supplied user ID.
+The stub's link sessions, display accounts, and provider operation state are in memory and reset on API restart; the database bind mount does not persist them. Funding operations, provider outcomes, committed ledger postings, and sandbox-provider transfer records are durable so retries and reconciliation remain auditable. Ownership is always derived from the authenticated principal, never from a caller-supplied user ID.
 
 The same application artifact supports API-only and worker-only roles through `Workers:Role`. Use `all` for local development, `api` for request-serving replicas, and `worker` for replicas that run the outbox and reconciliation hosted services. Reconciliation workers coordinate with a PostgreSQL advisory lease, so only one worker performs a scheduled run at a time and another replica can take over after a crash releases the database connection.
 
@@ -251,7 +251,7 @@ Use one `SenzyDbContext`, based on the Identity EF Core context, with PostgreSQL
 | Ledger transaction | Links a posting to a payment; reversal references the original transaction; a uniqueness constraint prevents duplicate posting for the same payment operation. |
 | Ledger entry | Transaction ID, account ID, debit/credit side, and positive integer minor-unit amount. Entries within a transaction balance per currency. |
 | Idempotency record | Unique actor/operation/key, canonical request fingerprint, committed outcome, and related payment ID. |
-| Funding transfer | Actor-owned sandbox account reference, direction, amount/currency, provider transfer reference, posting transaction, and status. |
+| Funding transfer | Actor-owned sandbox account reference, direction, amount/currency, stable provider operation ID, provider outcome, optional provider transfer reference, optional posting transaction, and status. |
 | Sandbox provider transfer | Durable simulated external-side record used only to exercise reconciliation. |
 | Outbox message | Immutable event ID, event type/version, aggregate ID, payload, and creation time. Per-consumer delivery state is stored separately with leases, retries, and delivery status. |
 | Notification | Actor-owned projection with a unique user/outbox source pair for idempotent delivery. |
@@ -305,7 +305,7 @@ Insufficient funds or invalid state must not leave partial postings. Define whic
 
 ### Simulated funding and operations — implemented in Phase 3
 
-`Features/Funding/FundingService.cs` uses the actor-owned account selected through `IBankingProvider`, then follows the same command protocol as payments: transaction-scoped idempotency lock, wallet/settlement-account row locks, policy checks under lock, balanced ledger posting, durable response, and outbox event in one commit. Cash-in debits the user's negative-allowed sandbox issuance account and credits the wallet; cash-out does the inverse. A `SandboxProviderTransfer` is the durable simulated external-side record. It is test data, not evidence that a bank transfer settled.
+`Features/Funding/FundingService.cs` creates a pending operation and scoped idempotency result in a short transaction. A worker calls `IBankingProvider` outside database transactions and financial locks using the stable provider operation ID. Confirmed success enters a second short transaction for wallet policy, balanced ledger posting, durable response, and the outbox event; failed and unknown provider outcomes remain explicit. Cash-in debits the user's negative-allowed sandbox issuance account and credits the wallet; cash-out does the inverse. A `SandboxProviderTransfer` is the durable simulated external-side record. It is test data, not evidence that a bank transfer settled.
 
 `WalletPolicy` owns wallet freeze state and blocks outbound posting while the actor's wallet is frozen. It also caps the sum of posted sends and cash-outs since UTC midnight. Send, accepted-request, reversal, and cash-out paths evaluate that policy after locking the debited wallet, so concurrent commands cannot both pass a stale limit check. The prototype exposes self-service freeze and unfreeze; a real deployment needs privileged support roles and stronger unfreeze/re-authentication policy.
 

@@ -316,13 +316,23 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ExternalAccountId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("LedgerTransactionId")
+                    b.Property<Guid?>("LedgerTransactionId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ProviderOperationId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ProviderOutcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("ProviderTransferId")
                         .IsRequired()
@@ -355,7 +365,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_FundingTransfers_Direction", "\"Direction\" IN ('CashIn', 'CashOut')");
 
-                            t.HasCheckConstraint("CK_FundingTransfers_Status", "\"Status\" = 'Posted'");
+                            t.HasCheckConstraint("CK_FundingTransfers_Status", "\"Status\" IN ('Pending', 'Posted', 'Failed', 'Unknown')");
                         });
                 });
 
@@ -689,8 +699,6 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_SandboxProviderTransfers_Amount", "\"AmountMinor\" > 0");
 
                             t.HasCheckConstraint("CK_SandboxProviderTransfers_Currency", "\"Currency\" = 'USD'");
-
-                            t.HasCheckConstraint("CK_SandboxProviderTransfers_Status", "\"Status\" = 'posted'");
                         });
                 });
 
@@ -980,8 +988,7 @@ namespace Senzy.Api.Infrastructure.Persistence.Migrations
                     b.HasOne("Senzy.Api.Infrastructure.Persistence.Models.LedgerTransaction", null)
                         .WithMany()
                         .HasForeignKey("LedgerTransactionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Senzy.Api.Features.Identity.ApplicationUser", null)
                         .WithMany()

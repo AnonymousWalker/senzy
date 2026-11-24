@@ -7,10 +7,15 @@ using Senzy.Modules.Funding;
 
 namespace Senzy.Api.Features.Reconciliation;
 
-public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
+public sealed class ReconciliationService(
+    SenzyDbContext db,
+    TimeProvider clock,
+    FundingService funding)
 {
   public async Task<ReconciliationResponse> RunAsync(CancellationToken ct)
   {
+    await funding.ProcessPendingAsync(ct);
+
     var started = clock.GetUtcNow();
 
     var entrySums = await db.LedgerEntries.AsNoTracking()
@@ -62,7 +67,9 @@ public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
                     && transaction.ReversesTransactionId == payment.PostedLedgerTransactionId))),
         ct);
 
-    var fundingMismatches = await db.FundingTransfers.AsNoTracking().CountAsync(transfer =>
+    var fundingMismatches = await db.FundingTransfers.AsNoTracking()
+        .Where(transfer => transfer.Status == FundingPersistenceStatus.Posted)
+        .CountAsync(transfer =>
         !db.LedgerTransactions.Any(transaction =>
             transaction.Id == transfer.LedgerTransactionId
             && transaction.FundingTransferId == transfer.Id
@@ -78,7 +85,7 @@ public sealed class ReconciliationService(SenzyDbContext db, TimeProvider clock)
             && provider.AmountMinor == transfer.AmountMinor
             && provider.Direction == transfer.Direction
             && provider.Currency == transfer.Currency
-            && provider.Status == "posted"),
+            && provider.Status == "succeeded"),
         ct);
 
     fundingMismatches += await db.SandboxProviderTransfers.AsNoTracking()

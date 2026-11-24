@@ -91,15 +91,16 @@ Wallet movement contracts use Wallets/Ledger concepts rather than EF persistence
 
 ## Financial transaction protocol
 
-Payments and Funding execute one PostgreSQL transaction:
+Payments execute one PostgreSQL transaction. Funding uses two short PostgreSQL transactions separated by the external provider call:
 
 1. Validate input and compute the canonical request fingerprint.
-2. Claim the actor/operation/idempotency key and replay a matching committed result.
-3. Resolve participants and invoke Wallets.
-4. Wallets locks affected accounts in deterministic order and evaluates freeze, limit, and balance policy under the lock.
-5. Wallets invokes Ledger to construct balanced entries and update the balance projection.
-6. The initiating module persists its business state, idempotency outcome, and outbox event.
-7. Commit once; acknowledge success only after commit.
+2. Claim the actor/operation/idempotency key and persist a pending funding operation.
+3. Commit the pending operation before calling the provider.
+4. Call the provider outside database transactions and financial locks with the stable provider operation ID.
+5. For confirmed success, begin a second transaction; Wallets locks affected accounts in deterministic order and evaluates policy under the lock.
+6. Wallets invokes Ledger to construct balanced entries and update the balance projection.
+7. Funding persists its provider outcome, posted state, idempotency outcome, and outbox event, then commits.
+8. Retry unknown outcomes through provider idempotency and reconciliation; never create a second provider operation or ledger posting.
 
 Posted entries are immutable. Corrections use linked compensating transactions. An uncertain commit remains unknown until a retry or query establishes the durable idempotency result. External provider calls never occur while financial locks are held and cannot join the PostgreSQL transaction.
 

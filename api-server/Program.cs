@@ -37,6 +37,7 @@ using Senzy.Infrastructure.Banking;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.Configure<StubBankingOptions>(builder.Configuration.GetSection("Banking:Stub"));
 builder.Services.AddSingleton<IBankingProvider, StubBankingProvider>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ApiErrors.Customize);
@@ -147,6 +148,7 @@ var workersEnabled = workerRole.Equals("all", StringComparison.OrdinalIgnoreCase
 if (workersEnabled)
 {
   builder.Services.AddHostedService<OutboxWorker>();
+  builder.Services.AddHostedService<FundingWorker>();
   builder.Services.AddHostedService<ReconciliationWorker>();
 }
 

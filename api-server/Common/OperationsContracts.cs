@@ -15,8 +15,10 @@ public sealed record FundingTransferResponse(
     Guid ExternalAccountId,
     string Provider,
     string ProviderTransferId,
+    string ProviderOperationId,
     string Direction,
     string Status,
+    string ProviderOutcome,
     long AmountMinor,
     string Currency,
     DateTimeOffset CreatedAt);
