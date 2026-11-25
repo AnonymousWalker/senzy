@@ -530,7 +530,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             provider: string;
-            providerTransferId: string;
+            providerOperationId: string;
+            providerOutcome: string;
+            providerTransferId: null | string;
             status: string;
         };
         HealthResponse: {
@@ -1117,8 +1119,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description Accepted */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -40,12 +40,12 @@ public static class FundingRoutes
                   ct)));
 
           return result is IValueHttpResult<FundingTransferResponse> { Value: { } value }
-              ? Results.Created($"/v1/funding-transfers/{value.Id}", value)
+              ? Results.Accepted($"/v1/funding-transfers/{value.Id}", value)
               : result;
         })
         .RequireRateLimiting("database-writes")
         .WithName("CreateFundingTransfer")
-        .Produces<FundingTransferResponse>(201)
+        .Produces<FundingTransferResponse>(202)
         .ProducesProblem(400)
         .ProducesProblem(404)
         .ProducesProblem(409);
@@ -76,5 +76,6 @@ public static class FundingRoutes
 
   private static FundingTransferResponse Map(FundingTransferResult value) =>
       new(value.Id, value.ExternalAccountId, value.Provider, value.ProviderTransferId,
-          value.Direction, value.Status, value.AmountMinor, value.Currency, value.CreatedAt);
+          value.ProviderOperationId, value.Direction, value.Status, value.ProviderOutcome,
+          value.AmountMinor, value.Currency, value.CreatedAt);
 }

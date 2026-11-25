@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using Microsoft.Extensions.Options;
 using Senzy.Infrastructure.Banking;
 
 namespace Senzy.Infrastructure.Banking;
@@ -16,6 +17,13 @@ public sealed class StubBankingProvider : IBankingProvider
 
   private readonly ConcurrentDictionary<string, LinkSession> _sessions = new();
   private readonly ConcurrentDictionary<Guid, ConcurrentQueue<ExternalBankAccount>> _accounts = new();
+  private readonly ConcurrentDictionary<string, FundingProviderResult> _funding = new();
+  private readonly StubBankingOptions _options;
+
+  public StubBankingProvider(IOptions<StubBankingOptions> options)
+  {
+    _options = options.Value;
+  }
 
   public IReadOnlyList<BankingInstitution> ListInstitutions() => Institutions;
 
@@ -79,10 +87,72 @@ public sealed class StubBankingProvider : IBankingProvider
   public ExternalBankAccount? FindAccount(Guid userId, Guid accountId) =>
       ListAccounts(userId).SingleOrDefault(account => account.Id == accountId);
 
+  public Task<FundingProviderResult> CreateFundingAsync(
+      FundingProviderRequest request,
+      CancellationToken cancellationToken)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    var result = _funding.GetOrAdd(request.OperationId, _ =>
+    {
+      var outcome = _options.FundingOutcome switch
+      {
+        StubFundingOutcome.Failed => FundingProviderOutcome.Failed,
+        StubFundingOutcome.Unknown => FundingProviderOutcome.Unknown,
+        _ => FundingProviderOutcome.Succeeded
+      };
+
+      return new FundingProviderResult(
+          request.OperationId,
+          outcome == FundingProviderOutcome.Failed ? null : $"stub_transfer_{request.OperationId}",
+          outcome);
+    });
+
+    return Task.FromResult(result);
+  }
+
+  public Task<FundingProviderResult> GetFundingAsync(
+      string operationId,
+      CancellationToken cancellationToken)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    if (!_funding.TryGetValue(operationId, out var result))
+    {
+      return Task.FromResult(new FundingProviderResult(
+          operationId,
+          null,
+          FundingProviderOutcome.Unknown));
+    }
+
+    if (result.Outcome == FundingProviderOutcome.Unknown
+        && _options.FundingOutcome == StubFundingOutcome.Succeeded)
+    {
+      result = result with
+      {
+        TransferId = $"stub_transfer_{operationId}",
+        Outcome = FundingProviderOutcome.Succeeded
+      };
+      _funding[operationId] = result;
+    }
+
+    return Task.FromResult(result);
+  }
+
   private sealed class LinkSession(Guid userId, DateTimeOffset expiresAt)
   {
     public Guid UserId { get; } = userId;
     public DateTimeOffset ExpiresAt { get; } = expiresAt;
     public bool Used { get; set; }
   }
+}
+
+public enum StubFundingOutcome
+{
+  Succeeded,
+  Failed,
+  Unknown
+}
+
+public sealed class StubBankingOptions
+{
+  public StubFundingOutcome FundingOutcome { get; set; } = StubFundingOutcome.Succeeded;
 }

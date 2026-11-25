@@ -35,8 +35,9 @@ public sealed class Phase3Tests
       amountMinor = 25_000,
       currency = "USD"
     }, key);
-    Assert.Equal(HttpStatusCode.Created, cashIn.StatusCode);
+    Assert.Equal(HttpStatusCode.Accepted, cashIn.StatusCode);
     var transfer = await cashIn.Content.ReadFromJsonAsync<JsonElement>();
+    await ProcessFunding(host, transfer.GetProperty("id").GetGuid());
     var replay = await Post(alice, "/v1/funding-transfers/", new
     {
       externalAccountId = accountId,
@@ -44,7 +45,7 @@ public sealed class Phase3Tests
       amountMinor = 25_000,
       currency = "USD"
     }, key);
-    Assert.Equal(HttpStatusCode.Created, replay.StatusCode);
+    Assert.Equal(HttpStatusCode.Accepted, replay.StatusCode);
     Assert.Equal(transfer.GetProperty("id").GetGuid(), (await replay.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
     Assert.Equal(HttpStatusCode.Conflict, (await Post(alice, "/v1/funding-transfers/", new
     {
@@ -90,35 +91,41 @@ public sealed class Phase3Tests
       currency = "USD",
       note = "blocked"
     }, Key())).StatusCode);
-    Assert.Equal(HttpStatusCode.Conflict, (await Post(alice, "/v1/funding-transfers/", new
+    var frozenCashOut = await Post(alice, "/v1/funding-transfers/", new
     {
       externalAccountId = accountId,
       direction = "cash_out",
       amountMinor = 100,
       currency = "USD"
-    }, Key())).StatusCode);
+    }, Key());
+    Assert.Equal(HttpStatusCode.Accepted, frozenCashOut.StatusCode);
+    await ProcessFunding(host, (await frozenCashOut.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
     Assert.Equal(HttpStatusCode.NoContent, (await alice.PostAsJsonAsync("/v1/operations/unfreeze", new { })).StatusCode);
-    Assert.Equal(HttpStatusCode.Created, (await Post(alice, "/v1/funding-transfers/", new
+    var cashIn = await Post(alice, "/v1/funding-transfers/", new
     {
       externalAccountId = accountId,
       direction = "cash_in",
       amountMinor = 1_000_000,
       currency = "USD"
-    }, Key())).StatusCode);
+    }, Key());
+    Assert.Equal(HttpStatusCode.Accepted, cashIn.StatusCode);
+    await ProcessFunding(host, (await cashIn.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
     Assert.Equal(HttpStatusCode.Created, (await Post(alice, "/v1/payments/", new
     {
       recipientHandle = "bob_controls",
-      amountMinor = 1_000_000,
+      amountMinor = 999_900,
       currency = "USD",
       note = "limit"
     }, Key())).StatusCode);
-    Assert.Equal(HttpStatusCode.Conflict, (await Post(alice, "/v1/funding-transfers/", new
+    var limitedCashOut = await Post(alice, "/v1/funding-transfers/", new
     {
       externalAccountId = accountId,
       direction = "cash_out",
       amountMinor = 1,
       currency = "USD"
-    }, Key())).StatusCode);
+    }, Key());
+    Assert.Equal(HttpStatusCode.Accepted, limitedCashOut.StatusCode);
+    await ProcessFunding(host, (await limitedCashOut.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
     var status = await alice.GetFromJsonAsync<JsonElement>("/v1/operations/status");
     Assert.False(status.GetProperty("isFrozen").GetBoolean());
     Assert.Equal(1_000_000, status.GetProperty("dailyOutboundLimitMinor").GetInt64());
@@ -182,8 +189,12 @@ public sealed class Phase3Tests
       amountMinor = 70_000,
       currency = "USD"
     }, Key())));
-    Assert.Single(attempts, response => response.StatusCode == HttpStatusCode.Created);
-    Assert.Single(attempts, response => response.StatusCode == HttpStatusCode.Conflict);
+    Assert.Equal(2, attempts.Count(response => response.StatusCode == HttpStatusCode.Accepted));
+    foreach (var response in attempts)
+    {
+      var transfer = await response.Content.ReadFromJsonAsync<JsonElement>();
+      await ProcessFunding(host, transfer.GetProperty("id").GetGuid());
+    }
     Assert.Equal(30_000, (await alice.GetFromJsonAsync<JsonElement>("/v1/wallet/")).GetProperty("availableMinor").GetInt64());
   }
 
@@ -198,20 +209,24 @@ public sealed class Phase3Tests
     using var alice = host.Factory.CreateClient();
     await RegisterAndLogin(alice, "alice-funding-fail@example.test", "alice_funding_fail");
     var accountId = await LinkAccount(alice);
-    Assert.Equal(HttpStatusCode.InternalServerError, (await Post(alice, "/v1/funding-transfers/", new
+    var response = await Post(alice, "/v1/funding-transfers/", new
     {
       externalAccountId = accountId,
       direction = "cash_in",
       amountMinor = 10_000,
       currency = "USD"
-    }, Key())).StatusCode);
+    }, Key());
+    Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+    var transfer = await response.Content.ReadFromJsonAsync<JsonElement>();
+    await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        ProcessFunding(host, transfer.GetProperty("id").GetGuid()));
     Assert.Equal(100_000, (await alice.GetFromJsonAsync<JsonElement>("/v1/wallet/")).GetProperty("availableMinor").GetInt64());
     await using var scope = host.Factory.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<SenzyDbContext>();
-    Assert.Empty(await db.FundingTransfers.ToListAsync());
+    Assert.Single(await db.FundingTransfers.ToListAsync());
     Assert.Empty(await db.SandboxProviderTransfers.ToListAsync());
     Assert.Empty(await db.LedgerTransactions.Where(transaction => transaction.Kind == LedgerTransactionKind.FundingIn).ToListAsync());
-    Assert.Empty(await db.IdempotencyRecords.Where(record => record.FundingTransferId != null).ToListAsync());
+    Assert.Single(await db.IdempotencyRecords.Where(record => record.FundingTransferId != null).ToListAsync());
     Assert.Empty(await db.OutboxMessages.Where(message => message.Type == "funding.posted").ToListAsync());
   }
 
@@ -246,6 +261,13 @@ public sealed class Phase3Tests
     var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
     request.Headers.Add("Idempotency-Key", key);
     return client.SendAsync(request);
+  }
+
+  private static async Task ProcessFunding(DatabaseHost host, Guid transferId)
+  {
+    await using var scope = host.Factory.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<FundingService>()
+        .ProcessPendingAsync(transferId, default);
   }
 
   private sealed class ThrowBeforeFundingCommit : IFundingFailureInjector

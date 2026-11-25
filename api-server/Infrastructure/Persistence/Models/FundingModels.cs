@@ -8,7 +8,18 @@ public enum FundingPersistenceDirection
 
 public enum FundingPersistenceStatus
 {
-  Posted
+  Pending,
+  Posted,
+  Failed,
+  Unknown
+}
+
+public enum FundingPersistenceProviderOutcome
+{
+  Pending,
+  Succeeded,
+  Failed,
+  Unknown
 }
 
 public sealed class FundingTransfer
@@ -17,12 +28,14 @@ public sealed class FundingTransfer
   public Guid UserId { get; set; }
   public Guid ExternalAccountId { get; set; }
   public string Provider { get; set; } = "stub-banking";
-  public string ProviderTransferId { get; set; } = "";
+  public string ProviderOperationId { get; set; } = "";
+  public string? ProviderTransferId { get; set; }
   public FundingPersistenceDirection Direction { get; set; }
   public FundingPersistenceStatus Status { get; set; }
+  public FundingPersistenceProviderOutcome ProviderOutcome { get; set; }
   public long AmountMinor { get; set; }
   public string Currency { get; set; } = "USD";
-  public Guid LedgerTransactionId { get; set; }
+  public Guid? LedgerTransactionId { get; set; }
   public DateTimeOffset CreatedAt { get; set; }
 }
 

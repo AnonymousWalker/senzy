@@ -358,8 +358,17 @@
           "provider": {
             "type": "string"
           },
-          "providerTransferId": {
+          "providerOperationId": {
             "type": "string"
+          },
+          "providerOutcome": {
+            "type": "string"
+          },
+          "providerTransferId": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "status": {
             "type": "string"
@@ -370,8 +379,10 @@
           "externalAccountId",
           "provider",
           "providerTransferId",
+          "providerOperationId",
           "direction",
           "status",
+          "providerOutcome",
           "amountMinor",
           "currency",
           "createdAt"
@@ -1538,7 +1549,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -1546,7 +1557,7 @@
                 }
               }
             },
-            "description": "Created"
+            "description": "Accepted"
           },
           "400": {
             "content": {
