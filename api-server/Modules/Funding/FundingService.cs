@@ -70,8 +70,6 @@ public sealed class FundingService(
       ProviderOperationId = $"funding_{Guid.NewGuid():N}",
       CreatedAt = now
     };
-    transfer.ProviderTransferId = transfer.ProviderOperationId;
-
     var response = Map(transfer);
     db.FundingTransfers.Add(transfer);
     db.IdempotencyRecords.Add(new()
@@ -166,7 +164,10 @@ public sealed class FundingService(
       FundingProviderOutcome.Unknown => FundingPersistenceProviderOutcome.Unknown,
       _ => throw new ArgumentOutOfRangeException(nameof(result))
     };
-    transfer.ProviderTransferId = result.TransferId ?? transfer.ProviderTransferId;
+    if (result.TransferId is not null)
+    {
+      transfer.ProviderTransferId = result.TransferId;
+    }
 
     if (result.Outcome == FundingProviderOutcome.Failed)
     {
@@ -227,13 +228,16 @@ public sealed class FundingService(
 
     transfer.LedgerTransactionId = posting.LedgerTransactionId;
     transfer.Status = FundingPersistenceStatus.Posted;
+    var providerTransferId = transfer.ProviderTransferId
+        ?? throw new InvalidOperationException(
+            "A successful funding provider outcome must include a transfer ID.");
     var now = clock.GetUtcNow();
     db.SandboxProviderTransfers.Add(new()
     {
       FundingTransferId = transfer.Id,
       UserId = transfer.UserId,
       ExternalAccountId = transfer.ExternalAccountId,
-      ProviderTransferId = transfer.ProviderTransferId,
+      ProviderTransferId = providerTransferId,
       Direction = transfer.Direction,
       AmountMinor = transfer.AmountMinor,
       Currency = transfer.Currency,
@@ -346,9 +350,7 @@ public sealed class FundingService(
           transfer.Id,
           transfer.ExternalAccountId,
           transfer.Provider,
-          transfer.ProviderOutcome == FundingPersistenceProviderOutcome.Succeeded
-              ? transfer.ProviderTransferId
-              : "",
+          transfer.ProviderTransferId,
           transfer.ProviderOperationId,
           FundingMappings.Value((FundingDirection)transfer.Direction),
           FundingMappings.Value((FundingStatus)transfer.Status),

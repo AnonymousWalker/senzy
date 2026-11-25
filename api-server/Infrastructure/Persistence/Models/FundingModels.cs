@@ -29,7 +29,7 @@ public sealed class FundingTransfer
   public Guid ExternalAccountId { get; set; }
   public string Provider { get; set; } = "stub-banking";
   public string ProviderOperationId { get; set; } = "";
-  public string ProviderTransferId { get; set; } = "";
+  public string? ProviderTransferId { get; set; }
   public FundingPersistenceDirection Direction { get; set; }
   public FundingPersistenceStatus Status { get; set; }
   public FundingPersistenceProviderOutcome ProviderOutcome { get; set; }

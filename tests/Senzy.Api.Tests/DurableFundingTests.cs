@@ -27,6 +27,7 @@ public sealed class DurableFundingTests
     Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
     var pending = await response.Content.ReadFromJsonAsync<JsonElement>();
     Assert.Equal("pending", pending.GetProperty("status").GetString());
+    Assert.Equal(JsonValueKind.Null, pending.GetProperty("providerTransferId").ValueKind);
 
     await Process(host, pending.GetProperty("id").GetGuid());
     await Process(host, pending.GetProperty("id").GetGuid());
@@ -36,6 +37,7 @@ public sealed class DurableFundingTests
     var transfer = await db.FundingTransfers.SingleAsync();
     Assert.Equal(FundingPersistenceStatus.Posted, transfer.Status);
     Assert.Equal(FundingPersistenceProviderOutcome.Succeeded, transfer.ProviderOutcome);
+    Assert.NotNull(transfer.ProviderTransferId);
     Assert.Single(await db.LedgerTransactions.Where(value => value.FundingTransferId == transfer.Id).ToListAsync());
     Assert.Single(await db.OutboxMessages.Where(value => value.AggregateId == transfer.Id).ToListAsync());
     Assert.Single(await db.SandboxProviderTransfers.Where(value => value.FundingTransferId == transfer.Id).ToListAsync());

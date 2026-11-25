@@ -365,7 +365,10 @@
             "type": "string"
           },
           "providerTransferId": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "status": {
             "type": "string"

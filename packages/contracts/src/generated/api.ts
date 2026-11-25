@@ -532,7 +532,7 @@ export interface components {
             provider: string;
             providerOperationId: string;
             providerOutcome: string;
-            providerTransferId: string;
+            providerTransferId: null | string;
             status: string;
         };
         HealthResponse: {
